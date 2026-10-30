@@ -941,8 +941,13 @@ impl eframe::App for PlayerApp {
         // Reposiciona o child do vídeo a cada frame (barato; resize/dpi
         // saem de graça) e alterna a visibilidade com o estado do play.
         if let Some(e) = &self.embed {
-            let min = video_rect.min * ppp;
-            let size = video_rect.size() * ppp;
+            let rect = if ctx.input(|i| i.viewport().fullscreen.unwrap_or(false)) {
+                ctx.input(|i| i.viewport().inner_rect.unwrap_or(video_rect))
+            } else {
+                video_rect
+            };
+            let min = rect.min * ppp;
+            let size = rect.size() * ppp;
             e.place(
                 min.x.round() as i32,
                 min.y.round() as i32,

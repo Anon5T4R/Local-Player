@@ -42,13 +42,17 @@ impl VideoEmbed {
     }
 
     /// Clique na área do vídeo (drenar por frame).
+    /// Desativado: o mpv OSC (built-in) trata os cliques na área do
+    /// vídeo — seek/volume/fullscreen. A interface do app (playlist) é
+    /// alternada por Tab (ver main.rs), sem conflito com o OSC.
     pub fn take_click(&self) -> bool {
-        // Linux: os eventos X11 são drenados aqui (sem WndProc).
+        // Linux: ainda drena eventos (só Motion/ButtonPress pra atividade
+        // de mouse — o clique não alterna chrome).
         #[cfg(unix)]
-        if self.imp.poll_events() {
-            self.clicked.store(true, Ordering::Relaxed);
+        {
+            let _ = self.imp.poll_events();
         }
-        self.clicked.swap(false, Ordering::Relaxed)
+        false
     }
 
     /// Timestamp (ms desde epoch) do ÚLTIMO movimento de mouse sobre o
@@ -76,8 +80,8 @@ mod imp {
     use windows::Win32::UI::WindowsAndMessaging::{
         CallWindowProcW, CreateWindowExW, DefWindowProcW, FindWindowW, PostMessageW, SetCursor,
         SetWindowLongPtrW, SetWindowPos, ShowWindow, GWLP_WNDPROC, HWND_TOP, SWP_NOACTIVATE,
-        SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WM_ERASEBKGND, WM_LBUTTONDOWN, WM_MOUSEMOVE,
-        WM_SETCURSOR, WS_CHILD,
+        SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP,
+        WM_MOUSEMOVE, WM_SETCURSOR, WM_SYSKEYDOWN, WM_SYSKEYUP, WS_CHILD,
     };
 
     fn wide(s: &str) -> Vec<u16> {
@@ -102,6 +106,11 @@ mod imp {
     /// WndProc original do child STATIC.
     static OLD_PROC: AtomicIsize = AtomicIsize::new(0);
 
+    /// HWND da janela principal do player ("LocalPlayer") — destino dos
+    /// WM_KEY* encaminhados do child (sem isso o mpv engole o teclado e
+    /// Esc/F/Space não chegam ao egui).
+    static PARENT_HWND: OnceLock<isize> = OnceLock::new();
+
     unsafe extern "system" fn child_proc(
         hwnd: HWND,
         msg: u32,
@@ -109,9 +118,11 @@ mod imp {
         lparam: LPARAM,
     ) -> LRESULT {
         match msg {
-            WM_LBUTTONDOWN => {
-                if let Some(flag) = CLICKED.get() {
-                    flag.store(true, Ordering::Relaxed);
+            // Encaminha o teclado pro pai (egui/winit) — os atalhos do
+            // player (Esc, F, Space, setas, M, Tab) só funcionam assim.
+            WM_KEYDOWN | WM_KEYUP | WM_SYSKEYDOWN | WM_SYSKEYUP => {
+                if let Some(&p) = PARENT_HWND.get() {
+                    let _ = PostMessageW(HWND(p as _), msg, wparam, lparam);
                 }
                 LRESULT(0)
             }
@@ -202,6 +213,9 @@ mod imp {
                 // do egui) e mata o erase de fundo.
                 let _ = CLICKED.set(clicked);
                 let _ = CURSOR_HIDE.set(Arc::new(AtomicBool::new(false)));
+                // Guarda o HWND do pai pra encaminhar o teclado (o mpv
+                // engole o teclado quando embutido via --wid).
+                let _ = PARENT_HWND.set(parent.0 as isize);
                 let proc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT =
                     child_proc;
                 let prev = SetWindowLongPtrW(child, GWLP_WNDPROC, proc as usize as isize);

@@ -677,6 +677,14 @@ impl eframe::App for PlayerApp {
                     Cmd::Unpause
                 });
             }
+            // Tab = alternar interface completa (playlist) — o OSC do
+            // mpv cuida dos controles in-video.
+            if ctx.input(|i| i.key_pressed(egui::Key::Tab)) {
+                self.chrome = !self.chrome;
+                if !self.chrome {
+                    self.fit_window_to_video(ctx);
+                }
+            }
             // [ / ] = girar o vídeo 90° (anti-horário / horário) — igual
             // ao lab-image. A janela acompanha (90° troca os eixos).
             if ctx.input(|i| i.key_pressed(egui::Key::OpenBracket)) {
@@ -778,7 +786,7 @@ impl eframe::App for PlayerApp {
 
         // Interface: o `chrome` (com playlist) só muda com clique/stop;
         // a `hover_bar` é o overlay de hover (mexeu o mouse → aparece).
-        let show_panels = self.chrome || self.hover_bar;
+        let show_panels = self.chrome;
         if show_panels {
             egui::TopBottomPanel::top("topo").show(ctx, |ui| {
                 ui.horizontal(|ui| {

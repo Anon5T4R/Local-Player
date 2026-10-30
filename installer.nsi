@@ -5,7 +5,7 @@ OutFile "local-player-setup.exe"
 InstallDir "$PROGRAMFILES\LocalPlayer"
 RequestExecutionLevel admin
 
-!define VERSION "0.9.3"
+!define VERSION "0.9.4"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY

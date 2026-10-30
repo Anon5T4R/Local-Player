@@ -158,6 +158,12 @@ struct PlayerApp {
     update_checking: bool,
     update_status: Option<UpdateStatus>,
     update_rx: Option<std::sync::mpsc::Receiver<UpdateStatus>>,
+    /// Autoupdate no STARTUP: só quando o app abriu direto (sem "abrir com"
+    /// de arquivo) — assim não atrapalha quem quer só ver um vídeo. O
+    /// modal só aparece se houver update disponível (Current/Error ficam
+    /// silenciosos).
+    auto_update: bool,
+    auto_update_check: bool,
 }
 
 impl PlayerApp {
@@ -184,6 +190,10 @@ impl PlayerApp {
         if initial_play.is_some() {
             resume::save_playlist(&playlist);
         }
+
+        // Autoupdate no startup: só se abriu direto (sem "abrir com").
+        let had_media = args.iter().any(|a| is_media(std::path::Path::new(a)));
+        let auto_update = !had_media;
 
         // Checa se o mpv está disponível. Se não, dispara download em
         // background (Windows) ou registra o erro (Linux sem mpv no PATH).
@@ -248,6 +258,8 @@ impl PlayerApp {
             update_checking: false,
             update_status: None,
             update_rx: None,
+            auto_update: auto_update,
+            auto_update_check: auto_update,
         }
     }
 
@@ -335,8 +347,17 @@ impl PlayerApp {
         if let Some(rx) = &self.update_rx {
             if let Ok(status) = rx.try_recv() {
                 self.update_checking = false;
-                self.update_status = Some(status);
                 self.update_rx = None;
+                if self.auto_update_check {
+                    self.auto_update_check = false;
+                    // Silencioso a menos que haja update de verdade —
+                    // Current/Error não abrem o modal sozinhos.
+                    if matches!(status, UpdateStatus::Available { .. }) {
+                        self.update_status = Some(status);
+                    }
+                } else {
+                    self.update_status = Some(status);
+                }
             }
         }
     }
@@ -459,6 +480,16 @@ impl eframe::App for PlayerApp {
         // Autoupdate: resultado do check em thread (mesmo desenho do
         // Local-Keys — nada de HTTP na UI thread).
         self.poll_update();
+
+        // Autoupdate no STARTUP (só abriu direto, sem "abrir com"):
+        // dispara o check uma única vez no primeiro frame. O modal só
+        // aparece se houver update disponível (Current/Error ficam
+        // silenciosos — ver poll_update).
+        if self.auto_update {
+            self.auto_update = false;
+            self.auto_update_check = true;
+            self.check_updates();
+        }
 
         let lang = self.cfg.lang;
         let t = |k: Key| i18n::t(lang, k);

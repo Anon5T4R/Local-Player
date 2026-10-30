@@ -3,6 +3,7 @@ name = "local-player"
 version = "0.9.11"
 edition = "2021"
 license = "GPL-3.0-or-later"
+publish = false
 repository = "https://github.com/Anon5T4R/Local-Player"
 description = "Player de mídia 100% local e offline (mpv embutido) — piloto egui da avaliação da suíte Local"
 

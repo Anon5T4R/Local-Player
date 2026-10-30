@@ -68,3 +68,14 @@ jobs:
               print("Dependências git encontradas (proibido):", *bad, sep="\n")
               sys.exit(1)
           PY
+
+  deny:
+    name: cargo-deny (licenças, bans, advisories)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check

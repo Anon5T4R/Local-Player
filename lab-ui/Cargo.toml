@@ -3,6 +3,7 @@ name = "lab-ui"
 version = "0.9.4"
 edition = "2021"
 license = "GPL-3.0-or-later"
+publish = false
 description = "Tema, i18n e config comuns dos pilotos egui da suíte Local"
 
 [dependencies]

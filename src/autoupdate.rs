@@ -1,4 +1,4 @@
-//! Autoupdate do LocalKeys — verifica releases no GitHub, baixa e substitui
+//! Autoupdate do Local-Player — verifica releases no GitHub, baixa e substitui
 //! o executável em execução (Windows: renomeia .old + copia novo; Linux: substitui
 //! direto pois não há lock de arquivo no exe rodando).
 

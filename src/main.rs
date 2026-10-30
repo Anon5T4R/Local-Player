@@ -26,6 +26,9 @@ use mpv::{Cmd, Event};
 mod autoupdate;
 use autoupdate::{spawn_check, UpdateStatus};
 
+#[cfg(windows)]
+mod mpv_job;
+
 const APP_ID: &str = "local-player";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -142,6 +145,14 @@ struct PlayerApp {
     video_size: Option<[f32; 2]>,
     /// Cursor escondido sobre o vídeo (estado aplicado — dedupe).
     cursor_hidden: bool,
+    /// Barra de controles TRANSIENTE (hover): mexeu o mouse → aparece;
+    /// 3 s parado → some. Diferente do `chrome` (= interface completa,
+    /// com playlist, que só muda com clique/parado).
+    hover_bar: bool,
+    /// Última posição do pointer que o egui viu (mudou = atividade).
+    prev_pos: Option<egui::Pos2>,
+    /// Timestamp (ms epoch) da última atividade de mouse no egui.
+    last_activity: u64,
     /// Autoupdate (mesmo desenho do Local-Keys): check em thread +
     /// modal com download/aplicação.
     update_checking: bool,
@@ -231,6 +242,9 @@ impl PlayerApp {
             chrome: true,
             video_size: None,
             cursor_hidden: false,
+            hover_bar: false,
+            prev_pos: None,
+            last_activity: 0,
             update_checking: false,
             update_status: None,
             update_rx: None,
@@ -413,7 +427,8 @@ impl PlayerApp {
         } else {
             (vw, vh)
         };
-        if self.placed_size == Some([dw, dh]) || self.chrome || self.embed_dead {
+        // Só sem interface NENHUMA (o painel somido devolve os pixels).
+        if self.placed_size == Some([dw, dh]) || self.chrome || self.hover_bar || self.embed_dead {
             return;
         }
         if ctx.input(|i| i.viewport().fullscreen.unwrap_or(false)) {
@@ -654,54 +669,75 @@ impl eframe::App for PlayerApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
         }
 
+        // ── Mouse: atividade → overlay de controles + cursor ──────────
+        // Duas fontes de "o usuário mexeu o mouse": o egui (quando a
+        // interface está visível ou o child oculto) e o child do vídeo
+        // (WndProc / MotionNotify — quando o vídeo cobre a janela, é ele
+        // quem recebe o mouse). As duas alimentam o MESMO timer de 3 s.
+        let last_move_child = self
+            .embed
+            .as_ref()
+            .map(|e| e.last_mouse_move())
+            .unwrap_or(0);
+        if last_move_child > self.last_activity {
+            self.last_activity = last_move_child;
+        }
+        let pos = ctx.input(|i| i.pointer.latest_pos());
+        if pos != self.prev_pos {
+            self.prev_pos = pos;
+            self.last_activity = now_ms();
+        }
+        let idle_ms = now_ms().saturating_sub(self.last_activity);
+        const IDLE_HIDE_MS: u64 = 3000;
+
+        // Barra de controles transiente: mexei → aparece; 3 s parado →
+        // some (o clique continua alternando a interface COMPLETA).
+        let controls_wanted = self.idx.is_some() && idle_ms < IDLE_HIDE_MS;
+        if controls_wanted != self.hover_bar {
+            self.hover_bar = controls_wanted;
+        }
+
         // Clique na área do vídeo (capturado pelo child — WndProc no
         // Windows, ButtonPress no X11) alterna a interface. Com o child
         // oculto (parado), o clique chega no egui normalmente.
+        let mut clicked_video = false;
         if let Some(e) = &self.embed {
-            if e.take_click() {
-                self.chrome = !self.chrome;
-                // Interface escondida = modo viewer: a janela assume o
-                // tamanho do vídeo (os Dims já vieram, mas com painéis
-                // abertos o resize é pulado — agora é a hora).
-                if !self.chrome {
-                    self.fit_window_to_video(ctx);
-                }
+            clicked_video = e.take_click();
+        }
+        if clicked_video {
+            self.chrome = !self.chrome;
+            // Interface escondida = modo viewer: a janela assume o
+            // tamanho do vídeo (os Dims já vieram, mas com painéis
+            // abertos o resize é pulado — agora é a hora).
+            if !self.chrome {
+                self.fit_window_to_video(ctx);
             }
         }
 
-        // Cursor sobre o vídeo: no fullscreen sem interface, 3 s sem
-        // mexer o mouse = cursor some; qualquer move + fullscreen traz
-        // de volta. O estado vive no child (quando o vídeo cobre a
-        // janela, o mouse é DELE — egui não vê cursor ali).
+        // Cursor sobre o vídeo: no fullscreen, parado 3 s sem mexer E
+        // sem barra de controles = cursor some; qualquer movimento (ou
+        // voltar pro modo com interface) traz de volta.
         let fullscreen = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
-        let video_mode = fullscreen && !self.chrome && self.idx.is_some();
-        if video_mode {
+        let hide_cursor = fullscreen
+            && self.idx.is_some()
+            && !self.chrome
+            && !self.hover_bar
+            && idle_ms >= IDLE_HIDE_MS;
+        if hide_cursor != self.cursor_hidden {
             if let Some(e) = &self.embed {
-                let last = e.last_mouse_move();
-                let idle_ms = if last == 0 {
-                    u64::MAX // sem move ainda: some já (qualquer move traz de volta)
-                } else {
-                    now_ms().saturating_sub(last)
-                };
-                let hide = idle_ms > 3000;
-                if hide != self.cursor_hidden {
-                    e.set_cursor_hidden(hide);
-                    self.cursor_hidden = hide;
-                }
+                e.set_cursor_hidden(hide_cursor);
+                self.cursor_hidden = hide_cursor;
             }
-        } else if self.cursor_hidden && !self.embed.is_none() {
-            if let Some(e) = &self.embed {
-                e.set_cursor_hidden(false);
-            }
-            self.cursor_hidden = false;
         }
 
         // Repaint adaptativo: os eventos do motor chegam por canal (só
         // são drenados num frame), então tocando precisa de ticks — mas
-        // interface oculta não tem seek bar pra animar, e pausado não
-        // tem progresso: 120 ms vira 400 ms nos dois casos.
+        // sem interface não tem seek bar pra animar, e pausado não tem
+        // progresso: 120 ms vira 400 ms nos dois casos. O tick de 400
+        // também leva o cursor-hide/controles-por-idle adiante (o pior
+        // atraso do "sumir" fica ~0,7 s — aceitável).
         if self.idx.is_some() {
-            let ms = if self.chrome && !self.paused {
+            let ms = if (self.chrome || self.hover_bar) && !self.paused {
                 120
             } else {
                 400
@@ -709,10 +745,10 @@ impl eframe::App for PlayerApp {
             ctx.request_repaint_after(Duration::from_millis(ms));
         }
 
-        // Interface (topo/controles/playlist) só quando `chrome` — tocando,
-        // a janela é só o vídeo.
-        let chrome = self.chrome;
-        if chrome {
+        // Interface: o `chrome` (com playlist) só muda com clique/stop;
+        // a `hover_bar` é o overlay de hover (mexeu o mouse → aparece).
+        let show_panels = self.chrome || self.hover_bar;
+        if show_panels {
             egui::TopBottomPanel::top("topo").show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.strong("LocalPlayer");
@@ -733,7 +769,7 @@ impl eframe::App for PlayerApp {
             });
         }
 
-        if chrome {
+        if show_panels {
             egui::TopBottomPanel::bottom("controles").show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     let playing = self.idx.is_some() && self.mpv_ready();
@@ -816,8 +852,9 @@ impl eframe::App for PlayerApp {
             });
         }
 
-        // Playlist: painel inferior fixo entre os controles e o vídeo.
-        if chrome {
+        // Playlist: painel inferior fixo (só na interface completa — no
+        // hover a barra de controles entra sem ofuscar o vídeo).
+        if self.chrome {
             egui::TopBottomPanel::bottom("playlist")
                 .exact_height(140.0)
                 .resizable(false)

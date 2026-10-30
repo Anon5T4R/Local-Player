@@ -27,6 +27,9 @@ use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
 
+#[cfg(windows)]
+use std::os::windows::io::AsRawHandle as _;
+
 /// Comando da UI → motor.
 #[derive(Clone, Debug)]
 pub enum Cmd {
@@ -295,6 +298,10 @@ fn apply(
                 .spawn()
             {
                 Ok(c) => {
+                    // O mpv morre com o player (job object KILL_ON_JOB_CLOSE
+                    // — fechar janela/crash/kill não deixa mais órfão).
+                    #[cfg(windows)]
+                    crate::mpv_job::assign(c.as_raw_handle());
                     *child = Some(c);
                     // A IPC nasce junto com o mpv — paciência pro connect.
                     for _ in 0..50 {

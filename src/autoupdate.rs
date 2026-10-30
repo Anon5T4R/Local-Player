@@ -101,7 +101,7 @@ pub fn apply_update(download_url: &str) -> Result<(), String> {
         .timeout_read(std::time::Duration::from_secs(60))
         .build();
 
-    let mut resp = client.get(download_url).call()
+    let resp = client.get(download_url).call()
         .map_err(|e| format!("falha no download: {e}"))?;
 
     let exe_path = std::env::current_exe()

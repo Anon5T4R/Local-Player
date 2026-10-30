@@ -6,8 +6,12 @@
 //!
 //! Extração: `sevenz-rust2` (Rust puro — sem 7z, sem dependência externa).
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
+#[cfg(windows)]
+use std::path::Path;
+
+#[cfg(windows)]
 use sha2::{Digest, Sha256};
 
 #[cfg(windows)]

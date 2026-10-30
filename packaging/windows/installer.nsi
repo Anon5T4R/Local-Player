@@ -5,7 +5,7 @@ OutFile "local-player-setup.exe"
 InstallDir "$PROGRAMFILES64\LocalPlayer"
 RequestExecutionLevel admin
 
-!define VERSION "0.9.11"
+!define VERSION "0.9.12"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -21,7 +21,7 @@ RequestExecutionLevel admin
 
 Section "Install"
   SetOutPath "$INSTDIR"
-  File "target\release\local-player.exe"
+  File "..\..\target\release\local-player.exe"
 
   ; Atalhos no contexto do USUÁRIO (não do admin elevado).
   SetShellVarContext current

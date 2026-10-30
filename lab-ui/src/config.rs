@@ -17,10 +17,7 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self {
-            theme: Theme::Nature,
-            lang: Lang::Pt,
-        }
+        Self { theme: Theme::Nature, lang: Lang::Pt }
     }
 }
 
@@ -45,10 +42,7 @@ pub fn save(app_id: &str, cfg: &Config) -> std::io::Result<()> {
 }
 
 pub fn load_from(path: &Path) -> Config {
-    std::fs::read_to_string(path)
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    std::fs::read_to_string(path).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
 }
 
 pub fn save_to(path: &Path, cfg: &Config) -> std::io::Result<()> {
@@ -64,19 +58,11 @@ mod tests {
 
     #[test]
     fn roundtrip_json() {
-        let dir = std::env::temp_dir().join(format!(
-            "lab-ui-test-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+        let dir = std::env::temp_dir()
+            .join(format!("lab-ui-test-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         let path = dir.join("config.json");
 
-        let cfg = Config {
-            theme: Theme::PunkPrincess,
-            lang: Lang::Es,
-        };
+        let cfg = Config { theme: Theme::PunkPrincess, lang: Lang::Es };
         save_to(&path, &cfg).unwrap();
         assert_eq!(load_from(&path), cfg);
 
@@ -85,17 +71,9 @@ mod tests {
 
     #[test]
     fn ausente_ou_corrompido_vira_default() {
-        assert_eq!(
-            load_from(Path::new("/caminho/que/nao/existe.json")),
-            Config::default()
-        );
-        let dir = std::env::temp_dir().join(format!(
-            "lab-ui-test-bad-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+        assert_eq!(load_from(Path::new("/caminho/que/nao/existe.json")), Config::default());
+        let dir = std::env::temp_dir()
+            .join(format!("lab-ui-test-bad-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         let path = dir.join("config.json");
         save_to(&path, &Config::default()).unwrap();
         std::fs::write(&path, "{ isso não é json").unwrap();

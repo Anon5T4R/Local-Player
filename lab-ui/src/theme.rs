@@ -20,13 +20,7 @@ pub enum Theme {
 }
 
 impl Theme {
-    pub const ALL: [Theme; 5] = [
-        Theme::Nature,
-        Theme::DarkBlue,
-        Theme::CalmGreen,
-        Theme::PastelPink,
-        Theme::PunkPrincess,
-    ];
+    pub const ALL: [Theme; 5] = [Theme::Nature, Theme::DarkBlue, Theme::CalmGreen, Theme::PastelPink, Theme::PunkPrincess];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -107,21 +101,11 @@ impl Theme {
         v.hyperlink_color = pal.accent;
         v.selection.bg_fill = pal.accent;
         // Strokes sutis pra não ficar "chapado"
-        v.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, if pal.dark {
-            Color32::from_white_alpha(30)
-        } else {
-            Color32::from_black_alpha(25)
-        });
-        v.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, if pal.dark {
-            Color32::from_white_alpha(60)
-        } else {
-            Color32::from_black_alpha(40)
-        });
-        v.widgets.active.bg_stroke = egui::Stroke::new(1.0, if pal.dark {
-            Color32::from_white_alpha(80)
-        } else {
-            Color32::from_black_alpha(60)
-        });
+        v.widgets.inactive.bg_stroke =
+            egui::Stroke::new(1.0_f32, if pal.dark { Color32::from_white_alpha(30) } else { Color32::from_black_alpha(25) });
+        v.widgets.hovered.bg_stroke =
+            egui::Stroke::new(1.0_f32, if pal.dark { Color32::from_white_alpha(60) } else { Color32::from_black_alpha(40) });
+        v.widgets.active.bg_stroke = egui::Stroke::new(1.0_f32, if pal.dark { Color32::from_white_alpha(80) } else { Color32::from_black_alpha(60) });
         ctx.set_visuals(v);
     }
 }

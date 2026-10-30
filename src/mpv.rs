@@ -52,6 +52,9 @@ pub enum Cmd {
     /// Rotação do vídeo em graus absolutos (0/90/180/270 — o UI guarda o
     /// quarto de volta e envia o grau; `video-rotate` do mpv).
     Rotate(i32),
+    /// Fullscreen do próprio mpv (complementa o fullscreen da janela do
+    /// app — o mpv sabe redimensionar a superfície de render sozinho).
+    Fullscreen(bool),
     Stop,
 }
 
@@ -69,6 +72,8 @@ pub enum Event {
     Volume(f64),
     /// Mute mudou (observado do mpv).
     Muted(bool),
+    /// Fullscreen do próprio mpv mudou.
+    Fullscreen(bool),
     /// Fim da faixa (keep-open: mpv fica parado no fim; a playlist decide).
     EndFile,
     /// O processo do mpv morreu/foi fechado pelo usuário.
@@ -320,7 +325,7 @@ fn apply(
                     // A IPC nasce junto com o mpv — paciência pro connect.
                     for _ in 0..50 {
                         if let Ok(mut i) = Ipc::connect(&addr) {
-                            for prop in ["time-pos", "duration", "width", "height", "pause", "volume", "mute"] {
+                            for prop in ["time-pos", "duration", "width", "height", "pause", "volume", "mute", "fullscreen"] {
                                 let _ = i.write_line(&format!(
                                     r#"{{"command":["observe_property",0,"{prop}"]}}"#
                                 ));
@@ -365,6 +370,10 @@ fn apply(
                 &format!(r#"{{"command":["set_property","video-rotate",{deg}]}}"#),
             );
         }
+        Cmd::Fullscreen(on) => send(
+            ipc,
+            &format!(r#"{{"command":["set_property","fullscreen",{}]}}"#, on),
+        ),
         Cmd::Stop => kill(child, ipc),
     }
 }
@@ -406,6 +415,7 @@ fn parse_event(line: &str) -> Option<Event> {
                 "pause" => Some(Event::Paused(data.as_bool()?)),
                 "volume" => Some(Event::Volume(data.as_f64()?)),
                 "mute" => Some(Event::Muted(data.as_bool()?)),
+                "fullscreen" => Some(Event::Fullscreen(data.as_bool()?)),
                 _ => None,
             }
         }

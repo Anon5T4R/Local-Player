@@ -615,6 +615,7 @@ impl eframe::App for PlayerApp {
                 Event::Paused(p) => self.paused = p,
                 Event::Volume(v) => self.volume = v.clamp(0.0, 100.0),
                 Event::Muted(m) => self.muted = m,
+                Event::Fullscreen(_) => {}
                 Event::EndFile => ended = true,
                 Event::Exited => {
                     self.status = t(Key::MpvClosed).into();
@@ -668,10 +669,12 @@ impl eframe::App for PlayerApp {
         if ctx.input(|i| i.key_pressed(egui::Key::F)) {
             let fs = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fs));
+            let _ = self.cmd_tx.send(Cmd::Fullscreen(!fs));
         }
         // Esc sai do fullscreen (backup).
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+            let _ = self.cmd_tx.send(Cmd::Fullscreen(false));
         }
 
         // ── Mouse: atividade → overlay de controles + cursor ──────────

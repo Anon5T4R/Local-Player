@@ -55,6 +55,19 @@ impl VideoEmbed {
         false
     }
 
+    /// Drenar o flag de Esc pressionado no child (garante saída do
+    /// fullscreen mesmo se o encaminhamento WM_KEY* falhar).
+    pub fn take_escape(&self) -> bool {
+        #[cfg(windows)]
+        {
+            self.imp.take_escape()
+        }
+        #[cfg(unix)]
+        {
+            false
+        }
+    }
+
     /// Timestamp (ms desde epoch) do ÚLTIMO movimento de mouse sobre o
     /// vídeo (o child engole o mouse — é ele quem sabe). 0 = nunca mexeu.
     pub fn last_mouse_move(&self) -> u64 {
@@ -68,6 +81,7 @@ impl VideoEmbed {
         self.imp.set_cursor_hidden(hide);
     }
 }
+
 
 #[cfg(windows)]
 mod imp {
@@ -111,6 +125,10 @@ mod imp {
     /// Esc/F/Space não chegam ao egui).
     static PARENT_HWND: OnceLock<isize> = OnceLock::new();
 
+    /// Flag "Esc pressionado no child" — consumida pela UI (Esc quebra
+    /// fullscreen mesmo se o encaminhamento WM_KEY* falhar).
+    static ESC_FLAG: AtomicBool = AtomicBool::new(false);
+
     unsafe extern "system" fn child_proc(
         hwnd: HWND,
         msg: u32,
@@ -121,6 +139,10 @@ mod imp {
             // Encaminha o teclado pro pai (egui/winit) — os atalhos do
             // player (Esc, F, Space, setas, M, Tab) só funcionam assim.
             WM_KEYDOWN | WM_KEYUP | WM_SYSKEYDOWN | WM_SYSKEYUP => {
+                // Esc garantido: seta o flag além do encaminhamento.
+                if msg == WM_KEYDOWN && wparam.0 as u32 == 0x1B {
+                    ESC_FLAG.store(true, Ordering::Relaxed);
+                }
                 if let Some(&p) = PARENT_HWND.get() {
                     let _ = PostMessageW(HWND(p as _), msg, wparam, lparam);
                 }
@@ -258,6 +280,10 @@ mod imp {
 
         pub fn last_mouse_move(&self) -> u64 {
             LAST_MOUSE_MOVE.load(Ordering::Relaxed)
+        }
+
+        pub fn take_escape(&self) -> bool {
+            ESC_FLAG.swap(false, Ordering::Relaxed)
         }
 
         pub fn set_cursor_hidden(&self, hide: bool) {

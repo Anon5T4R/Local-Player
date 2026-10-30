@@ -676,6 +676,13 @@ impl eframe::App for PlayerApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
             let _ = self.cmd_tx.send(Cmd::Fullscreen(false));
         }
+        // Esc garantido (vindo do child, mesmo se o encaminhamento falhar).
+        if let Some(e) = &self.embed {
+            if e.take_escape() {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                let _ = self.cmd_tx.send(Cmd::Fullscreen(false));
+            }
+        }
 
         // ── Mouse: atividade → overlay de controles + cursor ──────────
         // Duas fontes de "o usuário mexeu o mouse": o egui (quando a

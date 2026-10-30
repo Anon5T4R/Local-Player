@@ -1,11 +1,11 @@
 !include "MUI2.nsh"
 
 Name "LocalPlayer"
-OutFile "local-player-setup.exe"
+OutFile "..\..\local-player-setup.exe"
 InstallDir "$PROGRAMFILES64\LocalPlayer"
 RequestExecutionLevel admin
 
-!define VERSION "0.9.12"
+!define VERSION "0.9.13"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY

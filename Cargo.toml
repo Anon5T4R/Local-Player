@@ -1,0 +1,54 @@
+[package]
+name = "local-player"
+version = "0.9.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/Anon5T4R/Local-Player"
+description = "Player de mídia 100% local e offline (mpv embutido) — piloto egui da avaliação da suíte Local"
+
+[build-dependencies]
+# Embute o ícone no .exe (Windows) — sem isso o Explorer mostra ícone genérico.
+winresource = "0.1"
+
+[dependencies]
+eframe = "0.31"
+egui = "0.31"
+lab-ui = { path = "lab-ui" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Ícone da janela (mesmo desenho do Local-Keys: include_bytes + decode)
+image = "0.25"
+# Autoupdate: HTTP sync + zip/tar.gz (mesmo desenho do Local-Keys)
+ureq = { version = "2", features = ["json"] }
+zip = "2"
+flate2 = "1"
+tar = "0.4"
+# SHA-256 do mpv baixado (o espelho é da suíte, mas o binário confere)
+sha2 = "0.10"
+
+[target.'cfg(windows)'.dependencies]
+# IPC com o mpv via named pipe (handle único + leitura não-bloqueante —
+# ver mpv.rs) + download/extração do mpv portátil (ureq + sevenz-rust2,
+# Rust puro). Diálogo nativo (rfd; no Linux o caminho é digitado —
+# política do lab: AppImage enxuto).
+windows = { version = "0.58", features = [
+    "Win32_Storage_FileSystem",
+    "Win32_System_Pipes",
+    "Win32_Security",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_LibraryLoader",
+] }
+rfd = { version = "0.17", default-features = false }
+sevenz-rust2 = "0.21"
+
+[target.'cfg(unix)'.dependencies]
+# Child X11 pro embed do vídeo (--wid do mpv); rwh expõe o XID da janela
+# eframe (X11/XWayland — Wayland puro cai pro mpv em janela própria).
+x11rb = { version = "0.13", default-features = false }
+raw-window-handle = "0.6"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true
+panic = "abort"

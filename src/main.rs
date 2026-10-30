@@ -37,15 +37,10 @@ const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const ICON_PNG: &[u8] = include_bytes!("../icons/icon.png");
 
 /// Extensões aceitas na playlist (o filtro do diálogo, do drag-drop e dos args).
-const MEDIA_EXTS: &[&str] = &[
-    "mp4", "mkv", "webm", "mov", "avi", "m4v", "wmv", "mp3", "flac", "ogg", "wav", "m4a", "opus",
-];
+const MEDIA_EXTS: &[&str] = &["mp4", "mkv", "webm", "mov", "avi", "m4v", "wmv", "mp3", "flac", "ogg", "wav", "m4a", "opus"];
 
 fn is_media(p: &std::path::Path) -> bool {
-    p.extension()
-        .and_then(|x| x.to_str())
-        .map(|x| MEDIA_EXTS.contains(&x.to_ascii_lowercase().as_str()))
-        .unwrap_or(false)
+    p.extension().and_then(|x| x.to_str()).map(|x| MEDIA_EXTS.contains(&x.to_ascii_lowercase().as_str())).unwrap_or(false)
 }
 
 fn main() -> eframe::Result<()> {
@@ -64,17 +59,12 @@ fn main() -> eframe::Result<()> {
     // "Abrir com" do Windows manda os caminhos como args (pode ser mais de um).
     let args: Vec<String> = std::env::args().skip(1).collect();
 
-    let mut viewport = egui::ViewportBuilder::default()
-        .with_title("LocalPlayer")
-        .with_inner_size([480.0, 600.0]);
+    let mut viewport = egui::ViewportBuilder::default().with_title("LocalPlayer").with_inner_size([480.0, 600.0]);
     // Ícone da janela (o .exe já cunha o mesmo no build.rs — Resources).
     if let Some(icon) = load_icon() {
         viewport = viewport.with_icon(icon);
     }
-    let options = eframe::NativeOptions {
-        viewport,
-        ..Default::default()
-    };
+    let options = eframe::NativeOptions { viewport, ..Default::default() };
     eframe::run_native(
         APP_ID,
         options,
@@ -89,11 +79,7 @@ fn main() -> eframe::Result<()> {
 fn load_icon() -> Option<egui::IconData> {
     let img = image::load_from_memory(ICON_PNG).ok()?;
     let rgba = img.to_rgba8().into_raw();
-    Some(egui::IconData {
-        width: img.width(),
-        height: img.height(),
-        rgba,
-    })
+    Some(egui::IconData { width: img.width(), height: img.height(), rgba })
 }
 
 struct PlayerApp {
@@ -258,7 +244,7 @@ impl PlayerApp {
             update_checking: false,
             update_status: None,
             update_rx: None,
-            auto_update: auto_update,
+            auto_update,
             auto_update_check: auto_update,
         }
     }
@@ -272,12 +258,7 @@ impl PlayerApp {
         self.flush_resume();
         let r = resume::position_of(&self.resume, &path);
         let wid = self.embed.as_ref().map(|e| e.child_handle());
-        let _ = self.cmd_tx.send(Cmd::Open {
-            path,
-            resume: r,
-            volume: self.volume,
-            wid,
-        });
+        let _ = self.cmd_tx.send(Cmd::Open { path, resume: r, volume: self.volume, wid });
         self.idx = Some(i);
         // Tocando = só o vídeo: interface some (clique ou F traz de volta).
         self.chrome = false;
@@ -314,20 +295,14 @@ impl PlayerApp {
             resume::save(&self.resume);
             self.resume_dirty = false;
         }
-        resume::save_prefs(&resume::Prefs {
-            volume: self.volume,
-            muted: self.muted,
-        });
+        resume::save_prefs(&resume::Prefs { volume: self.volume, muted: self.muted });
     }
 
     /// Mute ligado/desligado (o "M" do teclado e o botão).
     fn toggle_mute(&mut self) {
         self.muted = !self.muted;
         let _ = self.cmd_tx.send(Cmd::Mute(self.muted));
-        resume::save_prefs(&resume::Prefs {
-            volume: self.volume,
-            muted: self.muted,
-        });
+        resume::save_prefs(&resume::Prefs { volume: self.volume, muted: self.muted });
     }
 
     /// Verifica atualizações no GitHub (não bloqueante).
@@ -370,48 +345,38 @@ impl PlayerApp {
         self.update_modal_inner(ctx, &status, t);
     }
 
-    fn update_modal_inner(
-        &mut self,
-        ctx: &egui::Context,
-        status: &UpdateStatus,
-        t: &dyn Fn(Key) -> &'static str,
-    ) {
+    fn update_modal_inner(&mut self, ctx: &egui::Context, status: &UpdateStatus, t: &dyn Fn(Key) -> &'static str) {
         let mut apply = false;
         let mut close = false;
-        let resp = egui::Modal::new(egui::Id::new("update"))
-            .frame(modal_frame(ctx))
-            .show(ctx, |ui| {
-                begin_dialog(ui);
-                ui.set_width(420.0);
-                ui.heading(t(Key::Update));
-                ui.add_space(8.0);
-                match status {
-                    UpdateStatus::Current => {
-                        ui.label(t(Key::CurrentVersion));
-                        ui.add_space(10.0);
-                        ui.label(format!("{} {}", t(Key::VersionLabel), CURRENT_VERSION));
-                    }
-                    UpdateStatus::Available { version, notes, .. } => {
-                        ui.label(format!("{} {}", t(Key::UpdateAvailable), version));
-                        ui.add_space(6.0);
-                        ui.label(egui::RichText::new(notes).weak());
-                        ui.add_space(12.0);
-                        if pill(ui, t(Key::DownloadAndInstall), true).clicked() {
-                            apply = true;
-                        }
-                    }
-                    UpdateStatus::Error(e) => {
-                        ui.label(
-                            egui::RichText::new(format!("{}: {}", t(Key::Error), e))
-                                .color(egui::Color32::LIGHT_RED),
-                        );
+        let resp = egui::Modal::new(egui::Id::new("update")).frame(modal_frame(ctx)).show(ctx, |ui| {
+            begin_dialog(ui);
+            ui.set_width(420.0);
+            ui.heading(t(Key::Update));
+            ui.add_space(8.0);
+            match status {
+                UpdateStatus::Current => {
+                    ui.label(t(Key::CurrentVersion));
+                    ui.add_space(10.0);
+                    ui.label(format!("{} {}", t(Key::VersionLabel), CURRENT_VERSION));
+                }
+                UpdateStatus::Available { version, notes, .. } => {
+                    ui.label(format!("{} {}", t(Key::UpdateAvailable), version));
+                    ui.add_space(6.0);
+                    ui.label(egui::RichText::new(notes).weak());
+                    ui.add_space(12.0);
+                    if pill(ui, t(Key::DownloadAndInstall), true).clicked() {
+                        apply = true;
                     }
                 }
-                ui.add_space(12.0);
-                if pill(ui, t(Key::Close), false).clicked() {
-                    close = true;
+                UpdateStatus::Error(e) => {
+                    ui.label(egui::RichText::new(format!("{}: {}", t(Key::Error), e)).color(egui::Color32::LIGHT_RED));
                 }
-            });
+            }
+            ui.add_space(12.0);
+            if pill(ui, t(Key::Close), false).clicked() {
+                close = true;
+            }
+        });
         if apply {
             self.apply_update();
         } else if close || resp.should_close() {
@@ -443,11 +408,7 @@ impl PlayerApp {
         }
         // mpv reporta as dims da FONTE — rotação de 90°/270° troca os
         // eixos do que é exibido.
-        let (dw, dh) = if self.rot % 2 == 1 {
-            (vh, vw)
-        } else {
-            (vw, vh)
-        };
+        let (dw, dh) = if self.rot % 2 == 1 { (vh, vw) } else { (vw, vh) };
         // Só sem interface NENHUMA (o painel somido devolve os pixels).
         if self.placed_size == Some([dw, dh]) || self.chrome || self.hover_bar || self.embed_dead {
             return;
@@ -520,11 +481,7 @@ impl eframe::App for PlayerApp {
             if let Some(e) = embed::VideoEmbed::new("LocalPlayer", frame) {
                 self.embed = Some(e);
                 self.embed_deadline = None;
-            } else if self
-                .embed_deadline
-                .map(|d| Instant::now() >= d)
-                .unwrap_or(false)
-            {
+            } else if self.embed_deadline.map(|d| Instant::now() >= d).unwrap_or(false) {
                 self.embed_dead = true;
             } else {
                 ctx.request_repaint_after(Duration::from_millis(100));
@@ -560,13 +517,8 @@ impl eframe::App for PlayerApp {
         }
 
         // Drag & drop de arquivos (o placeholder promete; aqui entrega).
-        let dropped: Vec<String> = ctx.input(|i| {
-            i.raw
-                .dropped_files
-                .iter()
-                .filter_map(|d| d.path.clone().map(|p| p.display().to_string()))
-                .collect()
-        });
+        let dropped: Vec<String> =
+            ctx.input(|i| i.raw.dropped_files.iter().filter_map(|d| d.path.clone().map(|p| p.display().to_string())).collect());
         if !dropped.is_empty() {
             let mut added = false;
             for f in dropped {
@@ -662,7 +614,9 @@ impl eframe::App for PlayerApp {
         // Tab / P = alternar interface completa (playlist).
         if ctx.input(|i| i.key_pressed(egui::Key::Tab) || i.key_pressed(egui::Key::P)) {
             self.chrome = !self.chrome;
-            if !self.chrome { self.fit_window_to_video(ctx); }
+            if !self.chrome {
+                self.fit_window_to_video(ctx);
+            }
         }
 
         // F = tela cheia (backup - o mpv tambem tem F, idempotente).
@@ -689,11 +643,7 @@ impl eframe::App for PlayerApp {
         // interface está visível ou o child oculto) e o child do vídeo
         // (WndProc / MotionNotify — quando o vídeo cobre a janela, é ele
         // quem recebe o mouse). As duas alimentam o MESMO timer de 3 s.
-        let last_move_child = self
-            .embed
-            .as_ref()
-            .map(|e| e.last_mouse_move())
-            .unwrap_or(0);
+        let last_move_child = self.embed.as_ref().map(|e| e.last_mouse_move()).unwrap_or(0);
         if last_move_child > self.last_activity {
             self.last_activity = last_move_child;
         }
@@ -733,11 +683,7 @@ impl eframe::App for PlayerApp {
         // sem barra de controles = cursor some; qualquer movimento (ou
         // voltar pro modo com interface) traz de volta.
         let fullscreen = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
-        let hide_cursor = fullscreen
-            && self.idx.is_some()
-            && !self.chrome
-            && !self.hover_bar
-            && idle_ms >= IDLE_HIDE_MS;
+        let hide_cursor = fullscreen && self.idx.is_some() && !self.chrome && !self.hover_bar && idle_ms >= IDLE_HIDE_MS;
         if hide_cursor != self.cursor_hidden {
             if let Some(e) = &self.embed {
                 e.set_cursor_hidden(hide_cursor);
@@ -752,11 +698,7 @@ impl eframe::App for PlayerApp {
         // também leva o cursor-hide/controles-por-idle adiante (o pior
         // atraso do "sumir" fica ~0,7 s — aceitável).
         if self.idx.is_some() {
-            let ms = if (self.chrome || self.hover_bar) && !self.paused {
-                120
-            } else {
-                400
-            };
+            let ms = if (self.chrome || self.hover_bar) && !self.paused { 120 } else { 400 };
             ctx.request_repaint_after(Duration::from_millis(ms));
         }
 
@@ -791,52 +733,31 @@ impl eframe::App for PlayerApp {
                     let label = if self.paused { "▶" } else { "⏸" };
                     if ui.add_enabled(playing, egui::Button::new(label)).clicked() {
                         self.paused = !self.paused;
-                        let _ = self.cmd_tx.send(if self.paused {
-                            Cmd::Pause
-                        } else {
-                            Cmd::Unpause
-                        });
+                        let _ = self.cmd_tx.send(if self.paused { Cmd::Pause } else { Cmd::Unpause });
                     }
                     if ui.add_enabled(playing, egui::Button::new("⏹")).clicked() {
                         let _ = self.cmd_tx.send(Cmd::Stop);
                         self.idx = None;
                         self.now.clear();
                     }
-                    if ui
-                        .add_enabled(playing, egui::Button::new("⟳"))
-                        .on_hover_text(format!("{} 90° ([ / ])", t(Key::Rotate)))
-                        .clicked()
-                    {
+                    if ui.add_enabled(playing, egui::Button::new("⟳")).on_hover_text(format!("{} 90° ([ / ])", t(Key::Rotate))).clicked() {
                         self.rot = (self.rot + 1) % 4;
                         let _ = self.cmd_tx.send(Cmd::Rotate((self.rot * 90) as i32));
                         self.fit_window_to_video(ctx);
                     }
                     if ui
                         .add_enabled(playing, egui::Button::new(if self.muted { "🔇" } else { "🔊" }))
-                        .on_hover_text(if self.muted {
-                            t(Key::Unmute)
-                        } else {
-                            t(Key::Mute)
-                        })
+                        .on_hover_text(if self.muted { t(Key::Unmute) } else { t(Key::Mute) })
                         .clicked()
                     {
                         self.toggle_mute();
                     }
-                    ui.label(format!(
-                        "{} / {}",
-                        fmt_time(self.time),
-                        fmt_time(self.duration)
-                    ));
+                    ui.label(format!("{} / {}", fmt_time(self.time), fmt_time(self.duration)));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.add(egui::Slider::new(&mut self.volume, 0.0..=100.0).text("♪"))
-                            .changed()
-                            .then(|| {
-                                let _ = self.cmd_tx.send(Cmd::Volume(self.volume));
-                                resume::save_prefs(&resume::Prefs {
-                                    volume: self.volume,
-                                    muted: self.muted,
-                                });
-                            });
+                        ui.add(egui::Slider::new(&mut self.volume, 0.0..=100.0).text("♪")).changed().then(|| {
+                            let _ = self.cmd_tx.send(Cmd::Volume(self.volume));
+                            resume::save_prefs(&resume::Prefs { volume: self.volume, muted: self.muted });
+                        });
                     });
                 });
                 // Seek bar. Durante o drag o valor vive em `seek_drag` —
@@ -844,10 +765,7 @@ impl eframe::App for PlayerApp {
                 // brigar com os eventos de progresso do mpv.
                 let playing = self.idx.is_some() && self.mpv_ready();
                 let mut t = self.seek_drag.unwrap_or(self.time);
-                let slider = ui.add_enabled(
-                    playing,
-                    egui::Slider::new(&mut t, 0.0..=self.duration.max(1.0)).show_value(false),
-                );
+                let slider = ui.add_enabled(playing, egui::Slider::new(&mut t, 0.0..=self.duration.max(1.0)).show_value(false));
                 if slider.dragged() {
                     self.seek_drag = Some(t);
                 }
@@ -870,60 +788,51 @@ impl eframe::App for PlayerApp {
         // Playlist: painel inferior fixo (só na interface completa — no
         // hover a barra de controles entra sem ofuscar o vídeo).
         if self.chrome {
-            egui::TopBottomPanel::bottom("playlist")
-                .exact_height(140.0)
-                .resizable(false)
-                .show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.strong(t(Key::Items));
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.button(format!("+ {}", t(Key::AddFile))).clicked() {
-                                if let Some(p) = pick_media() {
-                                    self.playlist.files.push(p);
-                                    resume::save_playlist(&self.playlist);
-                                }
-                            }
-                            if ui.button(format!("+ {}", t(Key::AddFolder))).clicked() {
-                                if let Some(dir) = pick_dir() {
-                                    // Fora da UI thread: read_dir em pasta
-                                    // de rede/nuvem (OneDrive) tem a MESMA
-                                    // lentidão do Explorer — na UI thread
-                                    // travava a janela inteira.
-                                    let (tx, rx) = std::sync::mpsc::channel();
-                                    std::thread::spawn(move || {
-                                        let _ = tx.send(list_media(&dir));
-                                    });
-                                    self.dir_rx = Some(rx);
-                                }
-                            }
-                            if ui
-                                .add_enabled(
-                                    !self.playlist.files.is_empty(),
-                                    egui::Button::new(t(Key::Clear)),
-                                )
-                                .clicked()
-                            {
-                                self.playlist.files.clear();
-                                self.idx = None;
+            egui::TopBottomPanel::bottom("playlist").exact_height(140.0).resizable(false).show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.strong(t(Key::Items));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button(format!("+ {}", t(Key::AddFile))).clicked() {
+                            if let Some(p) = pick_media() {
+                                self.playlist.files.push(p);
                                 resume::save_playlist(&self.playlist);
                             }
-                        });
-                    });
-                    egui::ScrollArea::vertical().show(ui, |ui| {
-                        // Sem clone por frame: só os índices (a playlist
-                        // inteira era clonada a cada repaint).
-                        for i in 0..self.playlist.files.len() {
-                            let name = std::path::Path::new(&self.playlist.files[i])
-                                .file_name()
-                                .map(|n| n.to_string_lossy().into_owned())
-                                .unwrap_or_else(|| self.playlist.files[i].clone());
-                            let is_now = self.idx == Some(i);
-                            if ui.selectable_label(is_now, &name).clicked() && self.mpv_ready() {
-                                self.play(i);
+                        }
+                        if ui.button(format!("+ {}", t(Key::AddFolder))).clicked() {
+                            if let Some(dir) = pick_dir() {
+                                // Fora da UI thread: read_dir em pasta
+                                // de rede/nuvem (OneDrive) tem a MESMA
+                                // lentidão do Explorer — na UI thread
+                                // travava a janela inteira.
+                                let (tx, rx) = std::sync::mpsc::channel();
+                                std::thread::spawn(move || {
+                                    let _ = tx.send(list_media(&dir));
+                                });
+                                self.dir_rx = Some(rx);
                             }
+                        }
+                        if ui.add_enabled(!self.playlist.files.is_empty(), egui::Button::new(t(Key::Clear))).clicked() {
+                            self.playlist.files.clear();
+                            self.idx = None;
+                            resume::save_playlist(&self.playlist);
                         }
                     });
                 });
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    // Sem clone por frame: só os índices (a playlist
+                    // inteira era clonada a cada repaint).
+                    for i in 0..self.playlist.files.len() {
+                        let name = std::path::Path::new(&self.playlist.files[i])
+                            .file_name()
+                            .map(|n| n.to_string_lossy().into_owned())
+                            .unwrap_or_else(|| self.playlist.files[i].clone());
+                        let is_now = self.idx == Some(i);
+                        if ui.selectable_label(is_now, &name).clicked() && self.mpv_ready() {
+                            self.play(i);
+                        }
+                    }
+                });
+            });
         }
 
         // Vídeo: painel central. O mpv desenha no child window posicionado
@@ -958,12 +867,7 @@ impl eframe::App for PlayerApp {
             };
             let min = rect.min * ppp;
             let size = rect.size() * ppp;
-            e.place(
-                min.x.round() as i32,
-                min.y.round() as i32,
-                size.x.round() as i32,
-                size.y.round() as i32,
-            );
+            e.place(min.x.round() as i32, min.y.round() as i32, size.x.round() as i32, size.y.round() as i32);
             e.set_visible(self.idx.is_some() && self.mpv_ready());
         }
 
@@ -983,10 +887,7 @@ impl eframe::App for PlayerApp {
 /// Timestamp (ms desde epoch) — a lógica cursor-hide compara com o
 /// último move que o child reportou (o mesmo relógio do embed.rs).
 fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
 }
 
 // ── diálogos (mesmo desenho do Local-Keys) ───────────────────────────────
@@ -1017,31 +918,17 @@ impl Skin {
     }
 
     fn from_visuals(v: &egui::Visuals) -> Self {
-        let text = v
-            .override_text_color
-            .unwrap_or(v.widgets.noninteractive.fg_stroke.color);
+        let text = v.override_text_color.unwrap_or(v.widgets.noninteractive.fg_stroke.color);
         let accent = v.selection.bg_fill;
         Self {
             card: v.extreme_bg_color,
             field: v.panel_fill,
             accent,
-            on_accent: if luminance(accent) > 150.0 {
-                egui::Color32::BLACK
-            } else {
-                egui::Color32::WHITE
-            },
+            on_accent: if luminance(accent) > 150.0 { egui::Color32::BLACK } else { egui::Color32::WHITE },
             text,
             muted: text.gamma_multiply(0.6),
-            border: if v.dark_mode {
-                egui::Color32::from_white_alpha(30)
-            } else {
-                egui::Color32::from_black_alpha(30)
-            },
-            hover: if v.dark_mode {
-                egui::Color32::from_white_alpha(18)
-            } else {
-                egui::Color32::from_black_alpha(14)
-            },
+            border: if v.dark_mode { egui::Color32::from_white_alpha(30) } else { egui::Color32::from_black_alpha(30) },
+            hover: if v.dark_mode { egui::Color32::from_white_alpha(18) } else { egui::Color32::from_black_alpha(14) },
         }
     }
 }
@@ -1090,22 +977,13 @@ fn pill(ui: &mut egui::Ui, label: &str, primary: bool) -> egui::Response {
 }
 
 /// Pill com cores explícitas; `outline` desenha só a borda.
-fn pill_colored(
-    ui: &mut egui::Ui,
-    label: &str,
-    fill: egui::Color32,
-    ink: egui::Color32,
-    outline: bool,
-) -> egui::Response {
+fn pill_colored(ui: &mut egui::Ui, label: &str, fill: egui::Color32, ink: egui::Color32, outline: bool) -> egui::Response {
     let skin = Skin::of(ui);
     let enabled = ui.is_enabled();
     let ink = if enabled { ink } else { skin.muted };
     let font = egui::TextStyle::Button.resolve(ui.style());
     let galley = ui.painter().layout_no_wrap(label.to_owned(), font, ink);
-    let (rect, resp) = ui.allocate_exact_size(
-        egui::vec2(galley.size().x + 28.0, 28.0),
-        egui::Sense::click(),
-    );
+    let (rect, resp) = ui.allocate_exact_size(egui::vec2(galley.size().x + 28.0, 28.0), egui::Sense::click());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, label));
     let hovered = resp.hovered() && enabled;
     let fill = if !enabled {
@@ -1124,18 +1002,8 @@ fn pill_colored(
     } else {
         fill
     };
-    let stroke = if outline {
-        egui::Stroke::new(1.0_f32, skin.border)
-    } else {
-        egui::Stroke::NONE
-    };
-    ui.painter().rect(
-        rect,
-        egui::CornerRadius::same(14),
-        fill,
-        stroke,
-        egui::StrokeKind::Inside,
-    );
+    let stroke = if outline { egui::Stroke::new(1.0_f32, skin.border) } else { egui::Stroke::NONE };
+    ui.painter().rect(rect, egui::CornerRadius::same(14), fill, stroke, egui::StrokeKind::Inside);
     let pos = rect.center() - galley.size() / 2.0;
     ui.painter().galley(pos, galley, ink);
     resp
@@ -1151,16 +1019,10 @@ fn ghost_ink(ui: &mut egui::Ui, label: &str, ink: egui::Color32) -> egui::Respon
     let skin = Skin::of(ui);
     let font = egui::TextStyle::Button.resolve(ui.style());
     let galley = ui.painter().layout_no_wrap(label.to_owned(), font, ink);
-    let (rect, resp) = ui.allocate_exact_size(
-        egui::vec2(galley.size().x + 14.0, 24.0),
-        egui::Sense::click(),
-    );
-    resp.widget_info(|| {
-        egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label)
-    });
+    let (rect, resp) = ui.allocate_exact_size(egui::vec2(galley.size().x + 14.0, 24.0), egui::Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label));
     if resp.hovered() {
-        ui.painter()
-            .rect_filled(rect, egui::CornerRadius::same(6), skin.hover);
+        ui.painter().rect_filled(rect, egui::CornerRadius::same(6), skin.hover);
     }
     let pos = rect.center() - galley.size() / 2.0;
     ui.painter().galley(pos, galley, ink);
@@ -1171,12 +1033,7 @@ fn pick_media() -> Option<String> {
     #[cfg(windows)]
     {
         rfd::FileDialog::new()
-            .add_filter(
-                "Mídia",
-                &[
-                    "mp4", "mkv", "webm", "mov", "avi", "m4v", "mp3", "flac", "ogg", "wav", "m4a",
-                ],
-            )
+            .add_filter("Mídia", &["mp4", "mkv", "webm", "mov", "avi", "m4v", "mp3", "flac", "ogg", "wav", "m4a"])
             .pick_file()
             .map(|p| p.display().to_string())
     }
@@ -1189,9 +1046,7 @@ fn pick_media() -> Option<String> {
 fn pick_dir() -> Option<String> {
     #[cfg(windows)]
     {
-        rfd::FileDialog::new()
-            .pick_folder()
-            .map(|p| p.display().to_string())
+        rfd::FileDialog::new().pick_folder().map(|p| p.display().to_string())
     }
     #[cfg(not(windows))]
     {

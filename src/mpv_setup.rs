@@ -66,11 +66,7 @@ pub fn check() -> MpvStatus {
             .status()
             .map(|s| s.success())
             .unwrap_or(false);
-        return if ok {
-            MpvStatus::Ready
-        } else {
-            MpvStatus::Error("mpv não está no PATH — instale (ex.: sudo apt install mpv)".into())
-        };
+        return if ok { MpvStatus::Ready } else { MpvStatus::Error("mpv não está no PATH — instale (ex.: sudo apt install mpv)".into()) };
     }
 
     let path = mpv_path();
@@ -140,15 +136,9 @@ fn verify_sha256(path: &Path, expected: &str) -> Result<(), String> {
 
 #[cfg(windows)]
 fn download_file(url: &str, dest: &Path) -> Result<(), String> {
-    let agent = ureq::AgentBuilder::new()
-        .timeout(std::time::Duration::from_secs(300))
-        .redirects(10)
-        .build();
+    let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(300)).redirects(10).build();
 
-    let resp = agent
-        .get(url)
-        .call()
-        .map_err(|e| format!("download: {e}"))?;
+    let resp = agent.get(url).call().map_err(|e| format!("download: {e}"))?;
 
     let mut reader = resp.into_reader();
     let mut file = std::fs::File::create(dest).map_err(|e| format!("criar arquivo: {e}"))?;
@@ -162,8 +152,7 @@ fn download_file(url: &str, dest: &Path) -> Result<(), String> {
 fn extract_7z(archive: &Path, dest: &Path) -> Result<(), String> {
     let file = std::fs::File::open(archive).map_err(|e| format!("abrir archive: {e}"))?;
 
-    let mut reader =
-        ArchiveReader::new(file, Password::empty()).map_err(|e| format!("abrir 7z: {e}"))?;
+    let mut reader = ArchiveReader::new(file, Password::empty()).map_err(|e| format!("abrir 7z: {e}"))?;
 
     // 7z costuma ser sólido: for_each_entries decodifica em sequência.
     reader
@@ -192,11 +181,7 @@ fn extract_7z(archive: &Path, dest: &Path) -> Result<(), String> {
             };
 
             let mut buf = vec![0u8; 512 * 1024];
-            loop {
-                let n = match rd.read(&mut buf) {
-                    Ok(n) => n,
-                    Err(_) => break,
-                };
+            while let Ok(n) = rd.read(&mut buf) {
                 if n == 0 {
                     break;
                 }
@@ -230,8 +215,5 @@ fn find_mpv_exe(dir: &Path) -> Result<PathBuf, String> {
         }
     }
 
-    Err(format!(
-        "mpv.exe não encontrado após extração em {}",
-        dir.display()
-    ))
+    Err(format!("mpv.exe não encontrado após extração em {}", dir.display()))
 }

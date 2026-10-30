@@ -34,10 +34,7 @@ fn default_volume() -> f64 {
 
 impl Default for Prefs {
     fn default() -> Self {
-        Self {
-            volume: default_volume(),
-            muted: false,
-        }
+        Self { volume: default_volume(), muted: false }
     }
 }
 
@@ -46,10 +43,7 @@ fn prefs_path() -> std::path::PathBuf {
 }
 
 pub fn load_prefs() -> Prefs {
-    std::fs::read_to_string(prefs_path())
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    std::fs::read_to_string(prefs_path()).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
 }
 
 pub fn save_prefs(p: &Prefs) {
@@ -63,10 +57,7 @@ pub fn save_prefs(p: &Prefs) {
 }
 
 pub fn load() -> Resume {
-    std::fs::read_to_string(path())
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    std::fs::read_to_string(path()).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
 }
 
 pub fn save(r: &Resume) {
@@ -103,21 +94,12 @@ pub struct Playlist {
 }
 
 pub fn load_playlist() -> Playlist {
-    let p = Path::new(&path())
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .join("playlist.json");
-    std::fs::read_to_string(p)
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    let p = Path::new(&path()).parent().unwrap_or_else(|| Path::new(".")).join("playlist.json");
+    std::fs::read_to_string(p).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
 }
 
 pub fn save_playlist(pl: &Playlist) {
-    let p = Path::new(&path())
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .join("playlist.json");
+    let p = Path::new(&path()).parent().unwrap_or_else(|| Path::new(".")).join("playlist.json");
     if let Ok(json) = serde_json::to_string(pl) {
         let _ = std::fs::write(p, json);
     }

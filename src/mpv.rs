@@ -47,6 +47,7 @@ pub enum Cmd {
     /// Mutar/desmutar (`set_property "mute"` — o UI guarda o estado).
     Mute(bool),
     SeekAbsolute(f64),
+    #[allow(dead_code)] // comando suportado pelo motor; a UI ainda não envia
     SeekRelative(f64),
     Volume(f64),
     /// Rotação do vídeo em graus absolutos (0/90/180/270 — o UI guarda o
@@ -73,6 +74,7 @@ pub enum Event {
     /// Mute mudou (observado do mpv).
     Muted(bool),
     /// Fullscreen do próprio mpv mudou.
+    #[allow(dead_code)] // payload observado mas ignorado (a UI só reage à mudança)
     Fullscreen(bool),
     /// Fim da faixa (keep-open: mpv fica parado no fim; a playlist decide).
     EndFile,
@@ -86,10 +88,7 @@ pub enum Event {
 pub fn spawn() -> (Sender<Cmd>, Receiver<Event>) {
     let (cmd_tx, cmd_rx) = std::sync::mpsc::channel::<Cmd>();
     let (ev_tx, ev_rx) = std::sync::mpsc::channel::<Event>();
-    std::thread::Builder::new()
-        .name("mpv-engine".into())
-        .spawn(move || engine(cmd_rx, ev_tx))
-        .expect("spawn mpv-engine");
+    std::thread::Builder::new().name("mpv-engine".into()).spawn(move || engine(cmd_rx, ev_tx)).expect("spawn mpv-engine");
     (cmd_tx, ev_rx)
 }
 
@@ -127,9 +126,7 @@ mod ipc {
                     None,
                 )
                 .map_err(|e| format!("abrir pipe: {e}"))?;
-                Ok(Self {
-                    file: File::from_raw_handle(h.0 as _),
-                })
+                Ok(Self { file: File::from_raw_handle(h.0 as _) })
             }
         }
 
@@ -143,8 +140,7 @@ mod ipc {
             unsafe {
                 let h = HANDLE(self.file.as_raw_handle() as _);
                 let mut avail: u32 = 0;
-                PeekNamedPipe(h, None, 0, None, Some(&mut avail), None)
-                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+                PeekNamedPipe(h, None, 0, None, Some(&mut avail), None).map_err(|e| std::io::Error::other(e.to_string()))?;
                 if avail == 0 {
                     return Ok(0);
                 }
@@ -194,10 +190,7 @@ fn ipc_addr() -> String {
     if cfg!(windows) {
         format!(r"\\.\pipe\localplayer-mpv-{}", std::process::id())
     } else {
-        std::env::temp_dir()
-            .join(format!("localplayer-mpv-{}.sock", std::process::id()))
-            .display()
-            .to_string()
+        std::env::temp_dir().join(format!("localplayer-mpv-{}.sock", std::process::id())).display().to_string()
     }
 }
 
@@ -250,11 +243,7 @@ fn engine(cmd_rx: Receiver<Cmd>, ev_tx: Sender<Event>) {
         //    eventos); parado, dorme mais. O comando que chega DURANTE o
         //    sono é aplicado direto — se cair no `let _`, é engolido e
         //    perdido (o drena do próximo giro vê o canal já vazio).
-        match cmd_rx.recv_timeout(if ipc.is_some() {
-            Duration::from_millis(80)
-        } else {
-            Duration::from_millis(300)
-        }) {
+        match cmd_rx.recv_timeout(if ipc.is_some() { Duration::from_millis(80) } else { Duration::from_millis(300) }) {
             Ok(cmd) => apply(&cmd, &mut child, &mut ipc, &mut rotate, &ev_tx),
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
@@ -262,25 +251,14 @@ fn engine(cmd_rx: Receiver<Cmd>, ev_tx: Sender<Event>) {
     }
 }
 
-fn apply(
-    cmd: &Cmd,
-    child: &mut Option<Child>,
-    ipc: &mut Option<Ipc>,
-    rotate: &mut i32,
-    ev_tx: &Sender<Event>,
-) {
+fn apply(cmd: &Cmd, child: &mut Option<Child>, ipc: &mut Option<Ipc>, rotate: &mut i32, ev_tx: &Sender<Event>) {
     let send = |ipc: &mut Option<Ipc>, json: &str| {
         if let Some(i) = ipc.as_mut() {
             let _ = i.write_line(json);
         }
     };
     match cmd {
-        Cmd::Open {
-            path,
-            resume,
-            volume,
-            wid,
-        } => {
+        Cmd::Open { path, resume, volume, wid } => {
             kill(child, ipc);
             let addr = ipc_addr();
             if !cfg!(windows) {
@@ -310,12 +288,7 @@ fn apply(
             }
             args.push(path.clone());
 
-            match Command::new(mpv_bin())
-                .args(&args)
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-            {
+            match Command::new(mpv_bin()).args(&args).stdout(Stdio::null()).stderr(Stdio::null()).spawn() {
                 Ok(c) => {
                     // O mpv morre com o player (job object KILL_ON_JOB_CLOSE
                     // — fechar janela/crash/kill não deixa mais órfão).
@@ -326,17 +299,12 @@ fn apply(
                     for _ in 0..50 {
                         if let Ok(mut i) = Ipc::connect(&addr) {
                             for prop in ["time-pos", "duration", "width", "height", "pause", "volume", "mute", "fullscreen"] {
-                                let _ = i.write_line(&format!(
-                                    r#"{{"command":["observe_property",0,"{prop}"]}}"#
-                                ));
+                                let _ = i.write_line(&format!(r#"{{"command":["observe_property",0,"{prop}"]}}"#));
                             }
                             // Reaplica a rotação da sessão (video-rotate é
                             // runtime — reseta a cada arquivo).
                             if *rotate != 0 {
-                                let _ = i.write_line(&format!(
-                                    r#"{{"command":["set_property","video-rotate",{}]}}"#,
-                                    *rotate
-                                ));
+                                let _ = i.write_line(&format!(r#"{{"command":["set_property","video-rotate",{}]}}"#, *rotate));
                             }
                             *ipc = Some(i);
                             let _ = ev_tx.send(Event::Ready);
@@ -353,27 +321,15 @@ fn apply(
         }
         Cmd::Pause => send(ipc, r#"{"command":["set_property","pause",true]}"#),
         Cmd::Unpause => send(ipc, r#"{"command":["set_property","pause",false]}"#),
-        Cmd::Mute(on) => send(
-            ipc,
-            &format!(r#"{{"command":["set_property","mute",{}]}}"#, on),
-        ),
+        Cmd::Mute(on) => send(ipc, &format!(r#"{{"command":["set_property","mute",{}]}}"#, on)),
         Cmd::SeekAbsolute(t) => send(ipc, &format!(r#"{{"command":["seek",{t},"absolute"]}}"#)),
         Cmd::SeekRelative(d) => send(ipc, &format!(r#"{{"command":["seek",{d},"relative"]}}"#)),
-        Cmd::Volume(v) => send(
-            ipc,
-            &format!(r#"{{"command":["set_property","volume",{v}]}}"#),
-        ),
+        Cmd::Volume(v) => send(ipc, &format!(r#"{{"command":["set_property","volume",{v}]}}"#)),
         Cmd::Rotate(deg) => {
             *rotate = deg.rem_euclid(360);
-            send(
-                ipc,
-                &format!(r#"{{"command":["set_property","video-rotate",{deg}]}}"#),
-            );
+            send(ipc, &format!(r#"{{"command":["set_property","video-rotate",{deg}]}}"#));
         }
-        Cmd::Fullscreen(on) => send(
-            ipc,
-            &format!(r#"{{"command":["set_property","fullscreen",{}]}}"#, on),
-        ),
+        Cmd::Fullscreen(on) => send(ipc, &format!(r#"{{"command":["set_property","fullscreen",{}]}}"#, on)),
         Cmd::Stop => kill(child, ipc),
     }
 }

@@ -13,7 +13,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
@@ -28,7 +28,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path out | Out-Null
           $env:PATH = "C:\Program Files (x86)\NSIS;$env:PATH"
-          makensis installer.nsi
+          makensis packaging/windows/installer.nsi
           if (Test-Path "local-player-setup.exe") {
             Move-Item "local-player-setup.exe" "out/local-player-setup.exe"
           }
@@ -39,7 +39,7 @@ jobs:
           if (-not (Test-Path out)) { New-Item -ItemType Directory -Force -Path out | Out-Null }
           Compress-Archive -Path "target/release/local-player.exe" -DestinationPath "out/local-player-windows-x64.zip" -Force
           Get-ChildItem out | Select-Object Name, Length
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: out/
@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
@@ -81,7 +81,7 @@ jobs:
           fi
           tar -czf "out/local-player-linux-x86_64.tar.gz" -C "target/release" local-player
           ls -la out
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux
           path: out/
@@ -91,7 +91,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Valida PKGBUILD
@@ -117,7 +117,7 @@ jobs:
             cd "local-player-$pkgver"
             install -Dm755 "target/release/local-player" "$pkgdir/usr/bin/local-player"
             install -Dm644 "icons/icon.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/local-player.png"
-            install -Dm644 "local-player.desktop" "$pkgdir/usr/share/applications/local-player.desktop"
+            install -Dm644 "packaging/linux/local-player.desktop" "$pkgdir/usr/share/applications/local-player.desktop"
           }
           EOF
           namcap PKGBUILD || true
@@ -129,7 +129,7 @@ jobs:
     timeout-minutes: 10
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
       - name: Criar release

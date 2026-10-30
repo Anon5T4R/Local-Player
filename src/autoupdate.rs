@@ -63,11 +63,7 @@ pub fn check_for_update() -> UpdateStatus {
         });
 
         match asset {
-            Some(download_url) => UpdateStatus::Available {
-                version: remote_version.to_string(),
-                download_url,
-                notes,
-            },
+            Some(download_url) => UpdateStatus::Available { version: remote_version.to_string(), download_url, notes },
             None => UpdateStatus::Error("asset da plataforma não encontrado".into()),
         }
     } else {
@@ -77,11 +73,7 @@ pub fn check_for_update() -> UpdateStatus {
 
 /// Compara versões semânticas simples (major.minor.patch).
 fn version_gt(a: &str, b: &str) -> bool {
-    let parse = |v: &str| {
-        v.split('.')
-            .filter_map(|s| s.parse::<u32>().ok())
-            .collect::<Vec<_>>()
-    };
+    let parse = |v: &str| v.split('.').filter_map(|s| s.parse::<u32>().ok()).collect::<Vec<_>>();
     let a_parts = parse(a);
     let b_parts = parse(b);
     for i in 0..3 {
@@ -96,31 +88,23 @@ fn version_gt(a: &str, b: &str) -> bool {
 
 /// Baixa o arquivo e substitui o executável atual.
 pub fn apply_update(download_url: &str) -> Result<(), String> {
-    let client = ureq::AgentBuilder::new()
-        .user_agent(USER_AGENT)
-        .timeout_read(std::time::Duration::from_secs(60))
-        .build();
+    let client = ureq::AgentBuilder::new().user_agent(USER_AGENT).timeout_read(std::time::Duration::from_secs(60)).build();
 
-    let resp = client.get(download_url).call()
-        .map_err(|e| format!("falha no download: {e}"))?;
+    let resp = client.get(download_url).call().map_err(|e| format!("falha no download: {e}"))?;
 
-    let exe_path = std::env::current_exe()
-        .map_err(|e| format!("não achou o exe atual: {e}"))?;
+    let exe_path = std::env::current_exe().map_err(|e| format!("não achou o exe atual: {e}"))?;
 
     #[cfg(windows)]
     {
         let old_path = exe_path.with_extension("exe.old");
         let _ = std::fs::remove_file(&old_path);
-        std::fs::rename(&exe_path, &old_path)
-            .map_err(|e| format!("falha ao renomear exe atual: {e}"))?;
+        std::fs::rename(&exe_path, &old_path).map_err(|e| format!("falha ao renomear exe atual: {e}"))?;
 
         let mut reader = resp.into_reader();
         let mut zip_data = Vec::new();
-        reader.read_to_end(&mut zip_data)
-            .map_err(|e| format!("falha ao ler download: {e}"))?;
+        reader.read_to_end(&mut zip_data).map_err(|e| format!("falha ao ler download: {e}"))?;
 
-        let mut zip = zip::ZipArchive::new(std::io::Cursor::new(zip_data))
-            .map_err(|e| format!("zip inválido: {e}"))?;
+        let mut zip = zip::ZipArchive::new(std::io::Cursor::new(zip_data)).map_err(|e| format!("zip inválido: {e}"))?;
         let mut file_name = String::new();
         for i in 0..zip.len() {
             if let Ok(file) = zip.by_index(i) {
@@ -134,11 +118,9 @@ pub fn apply_update(download_url: &str) -> Result<(), String> {
         if file_name.is_empty() {
             return Err("exe não encontrado no zip".to_string());
         }
-        let mut exe_file = zip.by_name(&file_name)
-            .map_err(|e| format!("exe não encontrado no zip: {e}"))?;
+        let mut exe_file = zip.by_name(&file_name).map_err(|e| format!("exe não encontrado no zip: {e}"))?;
 
-        std::io::copy(&mut exe_file, &mut std::fs::File::create(&exe_path)
-            .map_err(|e| format!("falha ao criar novo exe: {e}"))?)
+        std::io::copy(&mut exe_file, &mut std::fs::File::create(&exe_path).map_err(|e| format!("falha ao criar novo exe: {e}"))?)
             .map_err(|e| format!("falha ao escrever exe: {e}"))?;
 
         // Agenda limpeza do .old no próximo boot
@@ -163,37 +145,29 @@ pub fn apply_update(download_url: &str) -> Result<(), String> {
     {
         let mut reader = resp.into_reader();
         let mut data = Vec::new();
-        reader.read_to_end(&mut data)
-            .map_err(|e| format!("falha ao ler download: {e}"))?;
+        reader.read_to_end(&mut data).map_err(|e| format!("falha ao ler download: {e}"))?;
 
         if download_url.ends_with(".AppImage") {
-            std::fs::write(&exe_path, data)
-                .map_err(|e| format!("falha ao escrever AppImage: {e}"))?;
+            std::fs::write(&exe_path, data).map_err(|e| format!("falha ao escrever AppImage: {e}"))?;
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(&exe_path)
-                .map_err(|e| format!("metadata: {e}"))?.permissions();
+            let mut perms = std::fs::metadata(&exe_path).map_err(|e| format!("metadata: {e}"))?.permissions();
             perms.set_mode(0o755);
-            std::fs::set_permissions(&exe_path, perms)
-                .map_err(|e| format!("chmod: {e}"))?;
+            std::fs::set_permissions(&exe_path, perms).map_err(|e| format!("chmod: {e}"))?;
         } else if download_url.ends_with(".tar.gz") {
             let tar = flate2::read::GzDecoder::new(std::io::Cursor::new(data));
             let mut archive = tar::Archive::new(tar);
-            let entries = archive.entries()
-                .map_err(|e| format!("tar inválido: {e}"))?;
+            let entries = archive.entries().map_err(|e| format!("tar inválido: {e}"))?;
             for entry in entries {
                 let mut entry = entry.map_err(|e| format!("entry: {e}"))?;
                 if entry.path().map(|p| p.ends_with("local-player")).unwrap_or(false) {
-                    entry.unpack(&exe_path)
-                        .map_err(|e| format!("falha ao extrair: {e}"))?;
+                    entry.unpack(&exe_path).map_err(|e| format!("falha ao extrair: {e}"))?;
                     break;
                 }
             }
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(&exe_path)
-                .map_err(|e| format!("metadata: {e}"))?.permissions();
+            let mut perms = std::fs::metadata(&exe_path).map_err(|e| format!("metadata: {e}"))?.permissions();
             perms.set_mode(0o755);
-            std::fs::set_permissions(&exe_path, perms)
-                .map_err(|e| format!("chmod: {e}"))?;
+            std::fs::set_permissions(&exe_path, perms).map_err(|e| format!("chmod: {e}"))?;
         }
         Ok(())
     }

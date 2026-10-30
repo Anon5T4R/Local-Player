@@ -13,19 +13,19 @@
 //! Em Wayland puro `new()` retorna None e o mpv abre janela própria.
 //! O main() do player força backend X11 (WINIT_UNIX_BACKEND) pra garantir.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 pub struct VideoEmbed {
     imp: imp::VideoEmbed,
-    clicked: Arc<AtomicBool>,
+    _clicked: Arc<AtomicBool>,
 }
 
 impl VideoEmbed {
     pub fn new(window_title: &str, frame: &eframe::Frame) -> Option<Self> {
         let clicked = Arc::new(AtomicBool::new(false));
         let imp = imp::VideoEmbed::new(window_title, frame, Arc::clone(&clicked))?;
-        Some(Self { imp, clicked })
+        Some(Self { imp, _clicked: clicked })
     }
 
     pub fn child_handle(&self) -> isize {
@@ -82,7 +82,6 @@ impl VideoEmbed {
     }
 }
 
-
 #[cfg(windows)]
 mod imp {
     use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering};
@@ -92,10 +91,9 @@ mod imp {
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows::Win32::UI::WindowsAndMessaging::{
-        CallWindowProcW, CreateWindowExW, DefWindowProcW, FindWindowW, PostMessageW, SetCursor,
-        SetWindowLongPtrW, SetWindowPos, ShowWindow, GWLP_WNDPROC, HWND_TOP, SWP_NOACTIVATE,
-        SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP,
-        WM_MOUSEMOVE, WM_SETCURSOR, WM_SYSKEYDOWN, WM_SYSKEYUP, WS_CHILD,
+        CallWindowProcW, CreateWindowExW, DefWindowProcW, FindWindowW, PostMessageW, SetCursor, SetWindowLongPtrW, SetWindowPos, ShowWindow,
+        GWLP_WNDPROC, HWND_TOP, SWP_NOACTIVATE, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP, WM_MOUSEMOVE,
+        WM_SETCURSOR, WM_SYSKEYDOWN, WM_SYSKEYUP, WS_CHILD,
     };
 
     fn wide(s: &str) -> Vec<u16> {
@@ -103,10 +101,7 @@ mod imp {
     }
 
     fn now_ms() -> u64 {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis() as u64)
-            .unwrap_or(0)
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
     }
 
     /// Flag de clique compartilhada com o WndProc (um embed por processo —
@@ -129,12 +124,7 @@ mod imp {
     /// fullscreen mesmo se o encaminhamento WM_KEY* falhar).
     static ESC_FLAG: AtomicBool = AtomicBool::new(false);
 
-    unsafe extern "system" fn child_proc(
-        hwnd: HWND,
-        msg: u32,
-        wparam: WPARAM,
-        lparam: LPARAM,
-    ) -> LRESULT {
+    unsafe extern "system" fn child_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match msg {
             // Encaminha o teclado pro pai (egui/winit) — os atalhos do
             // player (Esc, F, Space, setas, M, Tab) só funcionam assim.
@@ -150,37 +140,29 @@ mod imp {
             }
             WM_MOUSEMOVE => {
                 LAST_MOUSE_MOVE.store(now_ms(), Ordering::Relaxed);
-                if CURSOR_HIDE
-                    .get()
-                    .is_some_and(|f| f.load(Ordering::Relaxed))
-                {
+                if CURSOR_HIDE.get().is_some_and(|f| f.load(Ordering::Relaxed)) {
                     SetCursor(None);
                     return LRESULT(0);
                 }
                 let old = OLD_PROC.load(Ordering::Relaxed);
                 if old != 0 {
-                    let proc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT =
-                        std::mem::transmute(old);
+                    let proc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT = std::mem::transmute(old);
                     CallWindowProcW(Some(proc), hwnd, msg, wparam, lparam)
                 } else {
                     DefWindowProcW(hwnd, msg, wparam, lparam)
                 }
             }
-            WM_SETCURSOR if CURSOR_HIDE
-                .get()
-                .is_some_and(|f| f.load(Ordering::Relaxed)) =>
-            {
+            WM_SETCURSOR if CURSOR_HIDE.get().is_some_and(|f| f.load(Ordering::Relaxed)) => {
                 // HTCLIENT (chegou do PostMessageW de force-refresh ou do
                 // sistema): cursor vazio sobre o vídeo. HTCLIENT = 1
                 // (lo-word do LPARAM — MAKELPARAM no envio).
-                if ((lparam.0 as isize) & 0xffff) == 1 {
+                if (lparam.0 & 0xffff) == 1 {
                     SetCursor(None);
                     return LRESULT(1);
                 }
                 let old = OLD_PROC.load(Ordering::Relaxed);
                 if old != 0 {
-                    let proc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT =
-                        std::mem::transmute(old);
+                    let proc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT = std::mem::transmute(old);
                     CallWindowProcW(Some(proc), hwnd, msg, wparam, lparam)
                 } else {
                     DefWindowProcW(hwnd, msg, wparam, lparam)
@@ -191,8 +173,7 @@ mod imp {
             _ => {
                 let old = OLD_PROC.load(Ordering::Relaxed);
                 if old != 0 {
-                    let proc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT =
-                        std::mem::transmute(old);
+                    let proc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT = std::mem::transmute(old);
                     CallWindowProcW(Some(proc), hwnd, msg, wparam, lparam)
                 } else {
                     DefWindowProcW(hwnd, msg, wparam, lparam)
@@ -206,14 +187,9 @@ mod imp {
     }
 
     impl VideoEmbed {
-        pub fn new(
-            window_title: &str,
-            _frame: &eframe::Frame,
-            clicked: Arc<AtomicBool>,
-        ) -> Option<Self> {
+        pub fn new(window_title: &str, _frame: &eframe::Frame, clicked: Arc<AtomicBool>) -> Option<Self> {
             unsafe {
-                let parent =
-                    FindWindowW(None, PCWSTR::from_raw(wide(window_title).as_ptr())).ok()?;
+                let parent = FindWindowW(None, PCWSTR::from_raw(wide(window_title).as_ptr())).ok()?;
                 let hinstance = GetModuleHandleW(None).ok()?;
                 let child = CreateWindowExW(
                     Default::default(),
@@ -238,16 +214,13 @@ mod imp {
                 // Guarda o HWND do pai pra encaminhar o teclado (o mpv
                 // engole o teclado quando embutido via --wid).
                 let _ = PARENT_HWND.set(parent.0 as isize);
-                let proc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT =
-                    child_proc;
+                let proc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT = child_proc;
                 let prev = SetWindowLongPtrW(child, GWLP_WNDPROC, proc as usize as isize);
                 if prev != 0 {
                     OLD_PROC.store(prev, Ordering::Relaxed);
                 }
 
-                Some(Self {
-                    child: child.0 as isize,
-                })
+                Some(Self { child: child.0 as isize })
             }
         }
 
@@ -257,24 +230,13 @@ mod imp {
 
         pub fn place(&self, x: i32, y: i32, w: i32, h: i32) {
             unsafe {
-                let _ = SetWindowPos(
-                    HWND(self.child as _),
-                    HWND_TOP,
-                    x,
-                    y,
-                    w,
-                    h,
-                    SWP_NOACTIVATE | SWP_NOZORDER,
-                );
+                let _ = SetWindowPos(HWND(self.child as _), HWND_TOP, x, y, w, h, SWP_NOACTIVATE | SWP_NOZORDER);
             }
         }
 
         pub fn set_visible(&self, visible: bool) {
             unsafe {
-                let _ = ShowWindow(
-                    HWND(self.child as _),
-                    if visible { SW_SHOWNOACTIVATE } else { SW_HIDE },
-                );
+                let _ = ShowWindow(HWND(self.child as _), if visible { SW_SHOWNOACTIVATE } else { SW_HIDE });
             }
         }
 
@@ -320,10 +282,7 @@ mod imp {
     use x11rb::rust_connection::RustConnection;
 
     fn now_ms() -> u64 {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis() as u64)
-            .unwrap_or(0)
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
     }
 
     pub struct VideoEmbed {
@@ -334,11 +293,7 @@ mod imp {
     }
 
     impl VideoEmbed {
-        pub fn new(
-            _window_title: &str,
-            frame: &eframe::Frame,
-            _clicked: Arc<AtomicBool>,
-        ) -> Option<Self> {
+        pub fn new(_window_title: &str, frame: &eframe::Frame, _clicked: Arc<AtomicBool>) -> Option<Self> {
             // XID da janela do eframe — só existe em X11/XWayland (Wayland
             // puro → None → mpv em janela própria).
             let raw = frame.window_handle().ok()?.as_raw();
@@ -362,18 +317,12 @@ mod imp {
                 0,
                 WindowClass::INPUT_OUTPUT,
                 x11rb::COPY_FROM_PARENT,
-                &CreateWindowAux::new().event_mask(
-                    EventMask::BUTTON_PRESS | EventMask::POINTER_MOTION | EventMask::STRUCTURE_NOTIFY,
-                ),
+                &CreateWindowAux::new().event_mask(EventMask::BUTTON_PRESS | EventMask::POINTER_MOTION | EventMask::STRUCTURE_NOTIFY),
             )
             .ok()?;
             conn.map_window(child).ok()?;
             conn.flush().ok()?;
-            Some(Self {
-                conn,
-                child,
-                last_move,
-            })
+            Some(Self { conn, child, last_move })
         }
 
         pub fn child_handle(&self) -> isize {
@@ -381,23 +330,12 @@ mod imp {
         }
 
         pub fn place(&self, x: i32, y: i32, w: i32, h: i32) {
-            let _ = self.conn.configure_window(
-                self.child,
-                &ConfigureWindowAux::new()
-                    .x(x)
-                    .y(y)
-                    .width(w.max(1) as u32)
-                    .height(h.max(1) as u32),
-            );
+            let _ = self.conn.configure_window(self.child, &ConfigureWindowAux::new().x(x).y(y).width(w.max(1) as u32).height(h.max(1) as u32));
             let _ = self.conn.flush();
         }
 
         pub fn set_visible(&self, visible: bool) {
-            let _ = if visible {
-                self.conn.map_window(self.child)
-            } else {
-                self.conn.unmap_window(self.child)
-            };
+            let _ = if visible { self.conn.map_window(self.child) } else { self.conn.unmap_window(self.child) };
             let _ = self.conn.flush();
         }
 

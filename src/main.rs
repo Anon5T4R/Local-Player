@@ -641,55 +641,11 @@ impl eframe::App for PlayerApp {
             self.next();
         }
 
-        // Seek de teclado: ←/→ ±10s (passo do mpv), ↑/↓ volume ±5,
-        // M mute, espaço = play/pause. A mídia tocando cobre a janela com
-        // o child (sem campos de texto em foco, então é todo daqui).
+        // Seek/volume/mute/fullscreen: o mpv (OSC + atalhos padrao) cuida
+        // - o app so sincroniza o estado via observe (pause/volume/mute)
+        // e trata os atalhos que o mpv nao tem.
         if self.idx.is_some() {
-            if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
-                let _ = self.cmd_tx.send(Cmd::SeekRelative(-10.0));
-                self.time = (self.time - 10.0).max(0.0);
-            }
-            if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
-                let _ = self.cmd_tx.send(Cmd::SeekRelative(10.0));
-                self.time += 10.0;
-            }
-            if ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
-                self.volume = (self.volume + 5.0).min(100.0);
-                let _ = self.cmd_tx.send(Cmd::Volume(self.volume));
-                resume::save_prefs(&resume::Prefs {
-                    volume: self.volume,
-                    muted: self.muted,
-                });
-            }
-            if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
-                self.volume = (self.volume - 5.0).max(0.0);
-                let _ = self.cmd_tx.send(Cmd::Volume(self.volume));
-                resume::save_prefs(&resume::Prefs {
-                    volume: self.volume,
-                    muted: self.muted,
-                });
-            }
-            if ctx.input(|i| i.key_pressed(egui::Key::M)) {
-                self.toggle_mute();
-            }
-            if ctx.input(|i| i.key_pressed(egui::Key::Space)) {
-                self.paused = !self.paused;
-                let _ = self.cmd_tx.send(if self.paused {
-                    Cmd::Pause
-                } else {
-                    Cmd::Unpause
-                });
-            }
-            // Tab = alternar interface completa (playlist) — o OSC do
-            // mpv cuida dos controles in-video.
-            if ctx.input(|i| i.key_pressed(egui::Key::Tab)) {
-                self.chrome = !self.chrome;
-                if !self.chrome {
-                    self.fit_window_to_video(ctx);
-                }
-            }
-            // [ / ] = girar o vídeo 90° (anti-horário / horário) — igual
-            // ao lab-image. A janela acompanha (90° troca os eixos).
+            // [ / ] = girar o video 90 (o mpv nao tem isso).
             if ctx.input(|i| i.key_pressed(egui::Key::OpenBracket)) {
                 self.rot = (self.rot + 3) % 4;
                 let _ = self.cmd_tx.send(Cmd::Rotate((self.rot * 90) as i32));
@@ -702,11 +658,18 @@ impl eframe::App for PlayerApp {
             }
         }
 
-        // F = tela cheia sem interface (o modelo "viewer"); Esc volta.
+        // Tab / P = alternar interface completa (playlist).
+        if ctx.input(|i| i.key_pressed(egui::Key::Tab) || i.key_pressed(egui::Key::P)) {
+            self.chrome = !self.chrome;
+            if !self.chrome { self.fit_window_to_video(ctx); }
+        }
+
+        // F = tela cheia (backup - o mpv tambem tem F, idempotente).
         if ctx.input(|i| i.key_pressed(egui::Key::F)) {
             let fs = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fs));
         }
+        // Esc sai do fullscreen (backup).
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
         }

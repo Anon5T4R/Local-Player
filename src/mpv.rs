@@ -287,12 +287,11 @@ fn apply(
                 "--keep-open=always".into(),
                 // OSC (seek/volume/fullscreen) embutido no vídeo + cursor
                 // some sozinho após 3 s — o mpv desenha por cima do vídeo,
-                // sem depender da UI do app. Atalhos padrão do mpv
-                // desligados (o app manda os comandos por IPC — evita
-                // duplo disparo).
+                // sem depender da UI do app. Atalhos padrão do mpv LIGADOS
+                // (Space/←→/F/Esc/M/9/0...) — o app só sincroniza o estado
+                // via observe (pause/volume/mute) e trata Tab/P (playlist).
                 "--osc=yes".into(),
                 "--cursor-autohide=3000".into(),
-                "--input-default-bindings=no".into(),
             ];
             // Windows: vídeo DENTRO da janela do player (child + --wid);
             // o DWM compõe o child acima da superfície GL do eframe.

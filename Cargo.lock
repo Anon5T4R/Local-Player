@@ -2219,7 +2219,7 @@ checksum = "4744e383959f0db86ede514b809b1c53251889093803c05267acc7d4e7030d70"
 
 [[package]]
 name = "local-player"
-version = "0.9.5"
+version = "0.9.6"
 dependencies = [
  "eframe",
  "egui",

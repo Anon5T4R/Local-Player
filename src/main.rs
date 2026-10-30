@@ -612,6 +612,9 @@ impl eframe::App for PlayerApp {
                     }
                     self.fit_window_to_video(ctx);
                 }
+                Event::Paused(p) => self.paused = p,
+                Event::Volume(v) => self.volume = v.clamp(0.0, 100.0),
+                Event::Muted(m) => self.muted = m,
                 Event::EndFile => ended = true,
                 Event::Exited => {
                     self.status = t(Key::MpvClosed).into();

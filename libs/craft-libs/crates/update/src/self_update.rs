@@ -184,13 +184,16 @@ fn detect(app: &App, exe: &Path) -> Option<Install> {
 
 #[cfg(windows)]
 fn detect(app: &App, exe: &Path) -> Option<Install> {
-    let dir = exe.parent()?;
+    // All comparisons in canonical form: canonicalize gives a `\\?\`-prefixed path on Windows, so
+    // a raw exe folder never equals a canonicalized registry or default folder, and every MSI
+    // install fell through to the standalone (portable zip) kind.
+    let canonical = |p: PathBuf| p.canonicalize().unwrap_or(p);
+    let dir = exe.parent().map(|p| canonical(p.to_path_buf()))?;
     if dir.join("portable.txt").is_file() {
         return Some(Install::Portable(exe.to_path_buf()));
     }
-    // The MSI installs per user, into the folder chosen in its wizard (which it records in the
-    // registry) or by default %LOCALAPPDATA%\Programs\<App Name>.
-    let canonical = |p: PathBuf| p.canonicalize().unwrap_or(p);
+    // The MSI installs per machine, into Program Files; a per-user kind would sit in
+    // %LOCALAPPDATA%\Programs. Both record their folder in the registry.
     let recorded = msi_install_dir(app).map(canonical);
     let default = crate::folders::data_local_dir().map(|d| canonical(d.join("Programs").join(app.name)));
     if [recorded, default].into_iter().flatten().any(|d| d == dir) {
@@ -206,12 +209,20 @@ fn detect(app: &App, exe: &Path) -> Option<Install> {
 #[cfg(windows)]
 fn msi_install_dir(app: &App) -> Option<PathBuf> {
     use winreg::RegKey;
-    use winreg::enums::HKEY_CURRENT_USER;
-    let subkey = format!(r"Software\Learning Machines LLC\{}", app.name);
-    let key = RegKey::predef(HKEY_CURRENT_USER).open_subkey(&subkey).ok()?;
-    let dir: String = key.get_value("InstallDir").ok()?;
-    let dir = dir.trim();
-    (!dir.is_empty()).then(|| PathBuf::from(dir))
+    use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+    // The suite's own per-machine MSI records its install folder under the suite's key; a
+    // per-user kind would sit in HKCU. HKLM first: the per-machine value is the whole machine's,
+    // not just the current account's.
+    for root in [HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER] {
+        let subkey = format!(r"Software\Anon5T4R\{}", app.name);
+        if let Ok(key) = RegKey::predef(root).open_subkey(&subkey)
+            && let Ok(dir) = key.get_value::<String, _>("InstallDir")
+            && !dir.trim().is_empty()
+        {
+            return Some(PathBuf::from(dir));
+        }
+    }
+    None
 }
 
 #[cfg(target_os = "linux")]
@@ -714,13 +725,34 @@ fn same_cache_as_helper(app: &App, paths: &Paths, exe: &Path) -> Result<(), Stri
 
 /// Accepts `file` when it carries a valid Authenticode signature from the same publisher as
 /// `reference`, this program. Refuses an unsigned file, another publisher's, and every file when
-/// `reference` itself isn't signed.
+/// `reference` itself isn't signed — unless both are unsigned: the Local suite's releases are
+/// unsigned, and the downloader already verified the download against the release's SHA-256
+/// (GitHub's per-asset digest) over HTTPS, which is then the channel's trust anchor. A signed
+/// file offered to an unsigned copy is still refused: it would be another channel's.
 #[cfg(windows)]
 fn signed_like(app: &App, reference: &Path, file: &Path) -> Result<(), String> {
     let publisher = |path: &Path| verifysign::verify_file(path).map(|signature| signature.subject_name());
-    let ours = publisher(reference).map_err(|e| format!("this copy of {} isn't signed ({e}), so it doesn't install updates", app.name))?;
-    let theirs = publisher(file).map_err(|e| format!("{} isn't signed ({e})", file.display()))?;
-    if ours == theirs { Ok(()) } else { Err(format!("{} isn't signed by {}'s publisher", file.display(), app.name)) }
+    match publisher(reference) {
+        // A signed copy updates only through its own publisher.
+        Ok(ours) => {
+            let theirs = publisher(file).map_err(|e| format!("{} isn't signed ({e})", file.display()))?;
+            if ours == theirs {
+                Ok(())
+            } else {
+                Err(format!("{} isn't signed by {}'s publisher", file.display(), app.name))
+            }
+        }
+        // An unsigned copy (this suite's releases): the release's checksum already verified the
+        // download, so an unsigned file is this channel's own update.
+        Err(_) => match publisher(file) {
+            Ok(_) => Err(format!(
+                "{} is signed, but this copy of {} isn't, so it looks like another channel's file",
+                file.display(),
+                app.name
+            )),
+            Err(_) => Ok(()),
+        },
+    }
 }
 
 /// Whether `file` is a Windows program or library (it starts with the `MZ` header), whatever its

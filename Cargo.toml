@@ -46,10 +46,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Ãcone da janela (mesmo desenho do Local-Keys: include_bytes + decode)
 image = "0.25"
-# Autoupdate: HTTP sync + tar.gz (Linux; Windows usa o setup.exe baixado)
-ureq = { version = "2", features = ["json"] }
-flate2 = "1"
-tar = "0.4"
+# Atualização: craft_update (libs/craft-libs) — check no GitHub, prompt egui e
+# self-update (Windows: MSI/portable; Linux: AppImage/tar.gz). O `egui` liga o
+# prompt e o Updater de UI.
+craft-update = { path = "libs/craft-libs/crates/update", features = ["egui"] }
 # SHA-256 do mpv baixado (o espelho Ã© da suÃ­te, mas o binÃ¡rio confere)
 sha2 = "0.10"
 
@@ -70,6 +70,9 @@ windows = { version = "0.58", features = [
 ] }
 rfd = { version = "0.17", default-features = false }
 sevenz-rust2 = "0.21"
+# Download do mpv portátil (HTTP sync; o sha256 vem do espelho da suíte) —
+# o único usuário de HTTP fora do craft_update, que traz o próprio.
+ureq = "2"
 
 [target.'cfg(unix)'.dependencies]
 # Child X11 pro embed do vÃ­deo (--wid do mpv); rwh expÃµe o XID da janela

@@ -10,15 +10,17 @@ Rust puro + egui, app single-crate. Sem conta, sem telemetria, sem dependência 
 - **Sem fontes git:** nenhuma dependência pode apontar para `git+` (o CI valida).
   Tudo vem do crates.io (pinado pelo lock).
 - **Commits:** português, sem Co-Authored-By.
-- **Release:** tag `vX.Y.Z` → o Actions builda Windows (NSIS + zip) e Linux
-  (AppImage + tar.gz), valida o PKGBUILD do Arch e publica. Mínimo local.
+- **Release:** tag `vX.Y.Z` → o Actions builda Windows (MSI + portable zip, WiX v5 via
+  `packaging/windows/package.ps1`) e Linux (AppImage + tar.gz), valida o PKGBUILD do Arch e
+  publica. Mínimo local. O `installer.nsi` ficou no repo por ora, mas o CI não o usa mais.
 - **Disco local:** nunca deixe `target/` para trás — `cargo clean` após uso local;
   builds pesados são do CI.
 
 ## Estrutura
 - `src/` — app single-crate
 - `icons/` — ícones do app
-- `packaging/windows/installer.nsi` — instalador NSIS (Program Files 64-bit)
+- `packaging/windows/package.ps1` + `local-player.wxs` — MSI per-machine (WiX v5, Program
+  Files\Local Player) e portable zip; `installer.nsi` é legado, sem uso no CI
 - `packaging/linux/local-player.desktop` — desktop entry
 
 ## Build

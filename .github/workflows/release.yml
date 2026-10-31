@@ -18,31 +18,17 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Build release
-        run: cargo build --release --bin local-player
-      - name: Install NSIS
-        shell: pwsh
-        run: choco install nsis -y --no-progress
-      - name: Create NSIS installer
-        shell: pwsh
+      - name: WiX Toolset (v5 + extensões UI/Util, como packaging/windows/package.ps1 espera)
         run: |
-          New-Item -ItemType Directory -Force -Path out | Out-Null
-          $env:PATH = "C:\Program Files (x86)\NSIS;$env:PATH"
-          makensis packaging/windows/installer.nsi
-          if (Test-Path "local-player-setup.exe") {
-            Move-Item "local-player-setup.exe" "out/local-player-setup.exe"
-          }
-          Get-ChildItem out | Select-Object Name, Length
-      - name: Portable zip
-        shell: pwsh
-        run: |
-          if (-not (Test-Path out)) { New-Item -ItemType Directory -Force -Path out | Out-Null }
-          Compress-Archive -Path "target/release/local-player.exe" -DestinationPath "out/local-player-windows-x64.zip" -Force
-          Get-ChildItem out | Select-Object Name, Length
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add -g WixToolset.UI.wixext/5.0.2
+          wix extension add -g WixToolset.Util.wixext/5.0.2
+      - name: Build e pacote (MSI per-machine + portable zip)
+        run: powershell -ExecutionPolicy Bypass -File packaging/windows/package.ps1
       - uses: actions/upload-artifact@v7
         with:
           name: windows
-          path: out/
+          path: dist/release/*
           if-no-files-found: error
 
   linux:
@@ -64,6 +50,7 @@ jobs:
         run: |
           set -euo pipefail
           export APPIMAGE_EXTRACT_AND_RUN=1
+          version=$(grep '^version =' Cargo.toml | head -1 | sed 's/.*= "\([^"]*\)".*/\1/')
           mkdir -p out
           appdir="AppDir-local-player"
           mkdir -p "$appdir/usr/bin"
@@ -76,10 +63,12 @@ jobs:
             --desktop-file "$appdir/local-player.desktop" \
             --icon-file "$appdir/local-player.png" --output appimage
           ls -la *.AppImage 2>/dev/null || true
+          # Nomes no padrão da suíte, que o updater (craft_update) parseia:
+          # <app>-<version>-<os>-<arch>.<ext>
           if ls LocalPlayer*.AppImage 1>/dev/null 2>&1; then
-            mv LocalPlayer*.AppImage "out/local-player-x86_64.AppImage"
+            mv LocalPlayer*.AppImage "out/local-player-$version-linux-x86_64.AppImage"
           fi
-          tar -czf "out/local-player-linux-x86_64.tar.gz" -C "target/release" local-player
+          tar -czf "out/local-player-$version-linux-x86_64.tar.gz" -C "target/release" local-player
           ls -la out
       - uses: actions/upload-artifact@v7
         with:

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LocalPlayer MSI (WiX Toolset v5: `dotnet tool install -g wix`, plus its UI and Util extensions:
+  `wix extension add -g WixToolset.UI.wixext/5.0.2` and the same for WixToolset.Util.wixext).
+  Built by package.ps1:
+
+    wix build local-player.wxs -arch x64 -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext
+      -d Version=0.11.2 -d BinDir=... -d IconPath=... -d LicenseRtf=... -o out.msi
+
+  Per-machine install into Program Files\Local Player with a Start Menu shortcut. The installer
+  shows the standard WiX dialogs: welcome + license, progress, and a finish page.
+
+  UpgradeCode and the component GUID below belong to LocalPlayer alone. Never copy them from (or
+  into) a sibling app of the suite: Windows Installer treats every package sharing an
+  UpgradeCode as one product, so a shared code makes one app's installer refuse to install ("a
+  newer version is already installed") or silently uninstall the other.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package
+      Name="Local Player"
+      Manufacturer="LocalPlayer contributors"
+      Version="$(var.Version)"
+      UpgradeCode="153D9386-6EA7-4D36-8CB3-C9B54A5A0FF1"
+      Scope="perMachine"
+      Compressed="yes"
+      Language="1033">
+    <SummaryInformation Description="LocalPlayer media player" Manufacturer="LocalPlayer contributors" />
+    <!-- Same-version upgrades let successive pre-releases of one X.Y.Z replace each other
+         (MSI versions are numeric, so 1.2.3-rc.1 and 1.2.3-rc.2 are both 1.2.3). -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+        DowngradeErrorMessage="A newer version of Local Player is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="LocalPlayerIcon.ico" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="LocalPlayerIcon.ico" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Anon5T4R/Local-Player" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/Anon5T4R/Local-Player/releases" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Anon5T4R/Local-Player/issues" />
+
+    <!-- Installer UI: WixUI_Minimal is welcome + license, progress, then a finish page so people
+         can see the install worked. Its dialogs and bitmaps are WiX's own (WixToolset.UI.wixext);
+         package.ps1 builds the license RTF. The finish page offers to launch Local Player (ticked
+         by default) through WixShellExec (WixToolset.Util.wixext); silent installs (/qn) never
+         show it. -->
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch Local Player" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="[#LocalPlayerExe]" />
+    <CustomAction Id="LaunchLocalPlayer" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixShellExec"
+        Impersonate="yes" Return="ignore" />
+    <UI>
+      <ui:WixUI Id="WixUI_Minimal" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchLocalPlayer"
+          Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+    </UI>
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="Local Player" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <Feature Id="Main" Title="Local Player" Level="1">
+      <ComponentGroupRef Id="LocalPlayerFiles" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="LocalPlayerFiles" Directory="INSTALLFOLDER">
+      <Component Id="LocalPlayerApp" Guid="69CA23C8-9537-40B8-A8D3-5904137B514E">
+        <File Id="LocalPlayerExe" Source="$(var.BinDir)\local-player.exe" KeyPath="yes">
+          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Local Player"
+              Description="LocalPlayer media player" WorkingDirectory="INSTALLFOLDER" Advertise="yes"
+              Icon="LocalPlayerIcon.ico" IconIndex="0" />
+        </File>
+
+        <RegistryValue Root="HKMU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\local-player.exe" Value="[#LocalPlayerExe]" Type="string" />
+        <!-- Where this MSI installed the app. The app's own updater (craft_update) reads it
+             (HKLM for a per-machine install) under the suite's key to know this is an MSI
+             install, so it updates with the new MSI rather than the portable zip. -->
+        <RegistryValue Root="HKLM" Key="Software\Anon5T4R\Local Player" Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

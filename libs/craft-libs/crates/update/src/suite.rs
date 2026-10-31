@@ -17,7 +17,7 @@ pub const PDFCRAFT: App = App {
 pub const EFFECTCRAFT: App = App::new("effectcraft", "EffectCraft", "Motion graphics and visual effects", "storytold/effectcraft");
 pub const DESIGNCRAFT: App = App::new("designcraft", "DesignCraft", "Page layout and publishing", "storytold/designcraft");
 pub const FIGCRAFT: App = App::new("figcraft", "FigCraft", "Interface design and prototyping", "storytold/figcraft");
-pub const WORDCRAFT: App = App::new("wordcraft", "WordCraft", "Writing and document design", "storytold/wordcraft");
+pub const LOCALPLAYER: App = App::new("local-player", "Local Player", "Media player", "Anon5T4R/Local-Player");
 pub const SOUNDCRAFT: App = App::new("soundcraft", "SoundCraft", "Recording, editing and mixing audio", "storytold/soundcraft");
 pub const DECKCRAFT: App = App::new("deckcraft", "DeckCraft", "Presentations and slide shows", "storytold/deckcraft");
 pub const CADCRAFT: App = App::new("cadcraft", "CADCraft", "Computer-aided design and drafting", "storytold/cadcraft");
@@ -38,7 +38,7 @@ pub const SUITE: [App; 13] = [
     EFFECTCRAFT,
     DESIGNCRAFT,
     FIGCRAFT,
-    WORDCRAFT,
+    LOCALPLAYER,
     SOUNDCRAFT,
     DECKCRAFT,
     CADCRAFT,

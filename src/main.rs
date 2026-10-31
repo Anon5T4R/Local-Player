@@ -23,9 +23,6 @@ use lab_ui::theme;
 use lab_ui::workarea::fit_to_work_area;
 use mpv::{Cmd, Event};
 
-mod autoupdate;
-use autoupdate::{spawn_check, UpdateStatus};
-
 #[cfg(windows)]
 mod mpv_job;
 
@@ -44,6 +41,14 @@ fn is_media(p: &std::path::Path) -> bool {
 }
 
 fn main() -> eframe::Result<()> {
+    // Windows: o helper de update é uma CÓPIA deste programa iniciada com
+    // `--finish-update` (craft_update). Roda ANTES de tudo — o helper espera
+    // o app sair e instala por conta própria.
+    #[cfg(windows)]
+    if let Some(result) = craft_update::self_update::finish(&craft_update::suite::LOCALPLAYER, &std::env::args_os().skip(1).collect::<Vec<_>>()) {
+        std::process::exit(i32::from(result.is_err()));
+    }
+
     // Embed via --wid exige X11 dos dois lados (janela do app e mpv).
     // Sem isso o winit prefere Wayland nativo, onde não existe XID. Com a
     // variável removida cai pro XWayland — presente em praticamente
@@ -93,7 +98,11 @@ fn main() -> eframe::Result<()> {
         options,
         Box::new(move |cc| {
             theme::apply(&cc.egui_ctx, cfg.theme);
-            Ok(Box::new(PlayerApp::new(cfg, args)))
+            let mut app = PlayerApp::new(cfg, args);
+            // Check de update no arranque: achou release nova, o prompt do
+            // updater abre sozinho (craft_update::dialog).
+            app.updater.check_at_start(&cc.egui_ctx);
+            Ok(Box::new(app))
         }),
     )
 }
@@ -103,6 +112,30 @@ fn load_icon() -> Option<egui::IconData> {
     let img = image::load_from_memory(ICON_PNG).ok()?;
     let rgba = img.to_rgba8().into_raw();
     Some(egui::IconData { width: img.width(), height: img.height(), rgba })
+}
+
+/// Abre a página da release no navegador — ação "Download" do prompt do
+/// updater, para instalações que não se auto-atualizam (zip solto, dev build).
+fn open_url(url: &str) {
+    #[cfg(windows)]
+    {
+        use windows::core::{HSTRING, PCWSTR};
+        use windows::Win32::UI::Shell::ShellExecuteW;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        let verb = HSTRING::from("open");
+        let file = HSTRING::from(url);
+        // > 32 = lançou (mesma convenção do antigo autoupdate com "runas").
+        let res = unsafe { ShellExecuteW(None, PCWSTR(verb.as_ptr()), PCWSTR(file.as_ptr()), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL) };
+        if res.0 as usize <= 32 {
+            eprintln!("update: falha ao abrir {url} (código {})", res.0 as usize);
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        if std::process::Command::new("xdg-open").arg(url).spawn().is_err() {
+            eprintln!("update: falha ao abrir {url}");
+        }
+    }
 }
 
 struct PlayerApp {
@@ -162,21 +195,9 @@ struct PlayerApp {
     prev_pos: Option<egui::Pos2>,
     /// Timestamp (ms epoch) da última atividade de mouse no egui.
     last_activity: u64,
-    /// Autoupdate (mesmo desenho do Local-Keys): check em thread +
-    /// modal com download/aplicação.
-    update_checking: bool,
-    update_status: Option<UpdateStatus>,
-    update_rx: Option<std::sync::mpsc::Receiver<UpdateStatus>>,
-    /// Resultado do apply_update (thread → UI): Ok = fechar o app para o
-    /// instalador elevado substituir os arquivos; Err real = modal de erro.
-    apply_rx: Option<std::sync::mpsc::Receiver<Result<(), String>>>,
-    apply_close: bool,
-    /// Autoupdate no STARTUP: só quando o app abriu direto (sem "abrir com"
-    /// de arquivo) — assim não atrapalha quem quer só ver um vídeo. O
-    /// modal só aparece se houver update disponível (Current/Error ficam
-    /// silenciosos).
-    auto_update: bool,
-    auto_update_check: bool,
+    /// Verificação e instalação de atualização (craft_update): check no
+    /// arranque/pedido, prompt egui próprio e self-update em thread própria.
+    updater: craft_update::updater::Updater,
 }
 
 impl PlayerApp {
@@ -203,10 +224,6 @@ impl PlayerApp {
         if initial_play.is_some() {
             resume::save_playlist(&playlist);
         }
-
-        // Autoupdate no startup: só se abriu direto (sem "abrir com").
-        let had_media = args.iter().any(|a| is_media(std::path::Path::new(a)));
-        let auto_update = !had_media;
 
         // Checa se o mpv está disponível. Se não, dispara download em
         // background (Windows) ou registra o erro (Linux sem mpv no PATH).
@@ -268,13 +285,7 @@ impl PlayerApp {
             hover_bar: false,
             prev_pos: None,
             last_activity: 0,
-            update_checking: false,
-            update_status: None,
-            update_rx: None,
-            apply_rx: None,
-            apply_close: false,
-            auto_update,
-            auto_update_check: auto_update,
+            updater: craft_update::updater::Updater::new(&craft_update::suite::LOCALPLAYER, CURRENT_VERSION),
         }
     }
 
@@ -334,110 +345,11 @@ impl PlayerApp {
         resume::save_prefs(&resume::Prefs { volume: self.volume, muted: self.muted });
     }
 
-    /// Verifica atualizações no GitHub (não bloqueante).
-    fn check_updates(&mut self) {
-        if self.update_checking {
-            return;
-        }
-        self.update_checking = true;
-        self.update_status = None;
-        let (tx, rx) = std::sync::mpsc::channel();
-        self.update_rx = Some(rx);
-        spawn_check(tx);
-    }
-
-    /// Processa resultado do check de atualização (chamado no início do update).
-    fn poll_update(&mut self) {
-        if let Some(rx) = &self.update_rx {
-            if let Ok(status) = rx.try_recv() {
-                self.update_checking = false;
-                self.update_rx = None;
-                if self.auto_update_check {
-                    self.auto_update_check = false;
-                    // Silencioso a menos que haja update de verdade —
-                    // Current/Error não abrem o modal sozinhos.
-                    if matches!(status, UpdateStatus::Available { .. }) {
-                        self.update_status = Some(status);
-                    }
-                } else {
-                    self.update_status = Some(status);
-                }
-            }
-        }
-        // Drena o resultado do apply_update (instalador lançado em thread):
-        // Ok → fecha o app para o NSIS substituir os arquivos; recusa do
-        // UAC → silêncio; erro real → modal.
-        if let Some(rx) = &self.apply_rx {
-            if let Ok(res) = rx.try_recv() {
-                self.apply_rx = None;
-                match res {
-                    Ok(()) => self.apply_close = true,
-                    Err(e) if e != autoupdate::CANCELLED => self.update_status = Some(UpdateStatus::Error(e)),
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    /// Modal de atualização disponível / já atual / erro.
-    fn update_modal(&mut self, ctx: &egui::Context, t: &dyn Fn(Key) -> &'static str) {
-        let Some(status) = self.update_status.clone() else {
-            return;
-        };
-        self.update_modal_inner(ctx, &status, t);
-    }
-
-    fn update_modal_inner(&mut self, ctx: &egui::Context, status: &UpdateStatus, t: &dyn Fn(Key) -> &'static str) {
-        let mut apply = false;
-        let mut close = false;
-        let resp = egui::Modal::new(egui::Id::unique("update")).frame(modal_frame(ctx)).show(ctx, |ui| {
-            begin_dialog(ui);
-            ui.set_width(420.0);
-            ui.heading(t(Key::Update));
-            ui.add_space(8.0);
-            match status {
-                UpdateStatus::Current => {
-                    ui.label(t(Key::CurrentVersion));
-                    ui.add_space(10.0);
-                    ui.label(format!("{} {}", t(Key::VersionLabel), CURRENT_VERSION));
-                }
-                UpdateStatus::Available { version, notes, .. } => {
-                    ui.label(format!("{} {}", t(Key::UpdateAvailable), version));
-                    ui.add_space(6.0);
-                    ui.label(egui::RichText::new(notes).weak());
-                    ui.add_space(12.0);
-                    if pill(ui, t(Key::DownloadAndInstall), true).clicked() {
-                        apply = true;
-                    }
-                }
-                UpdateStatus::Error(e) => {
-                    ui.label(egui::RichText::new(format!("{}: {}", t(Key::Error), e)).color(egui::Color32::LIGHT_RED));
-                }
-            }
-            ui.add_space(12.0);
-            if pill(ui, t(Key::Close), false).clicked() {
-                close = true;
-            }
-        });
-        if apply {
-            self.apply_update();
-        } else if close || resp.should_close() {
-            self.update_status = None;
-        }
-    }
-
-    /// Aplica a atualização (baixa o instalador e lança elevado em thread).
-    fn apply_update(&mut self) {
-        if let Some(UpdateStatus::Available { download_url, .. }) = &self.update_status {
-            let url = download_url.clone();
-            self.update_status = None;
-            let (tx, rx) = std::sync::mpsc::channel();
-            self.apply_rx = Some(rx);
-            // Roda em thread para não travar a UI
-            std::thread::spawn(move || {
-                let _ = tx.send(autoupdate::apply_update(&url));
-            });
-        }
+    /// Verifica atualizações agora (botão "Verificar atualizações").
+    /// O resultado sai na linha de status (nada encontrado/erro); release
+    /// nova abre o prompt do próprio updater.
+    fn check_updates(&mut self, ctx: &egui::Context) {
+        self.updater.check_now(ctx);
     }
 
     /// Janela do tamanho do vídeo (só com interface oculta — com painéis
@@ -483,27 +395,26 @@ fn fmt_time(s: f64) -> String {
 impl eframe::App for PlayerApp {
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx = &ui.ctx().clone();
-        // Autoupdate: resultado do check em thread (mesmo desenho do
-        // Local-Keys - nada de HTTP na UI thread).
-        self.poll_update();
-        // Installador elevado já lançado (poll_update): fecha o app para
-        // o NSIS substituir os arquivos sob Program Files.
-        if self.apply_close {
-            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-        }
-
-        // Autoupdate no STARTUP (só abriu direto, sem "abrir com"):
-        // dispara o check uma única vez no primeiro frame. O modal só
-        // aparece se houver update disponível (Current/Error ficam
-        // silenciosos — ver poll_update).
-        if self.auto_update {
-            self.auto_update = false;
-            self.auto_update_check = true;
-            self.check_updates();
-        }
+        // Update (craft_update): bombeia o check/instalação que rodam fora
+        // da UI thread (mesmo desenho do Local-Keys).
+        self.updater.tick(ctx);
 
         let lang = self.cfg.lang;
         let t = |k: Key| i18n::t(lang, k);
+
+        // Check pedido ("Verificar atualizações"): nada encontrado/erro vira
+        // linha de status; release nova abre o prompt do updater lá embaixo.
+        match self.updater.status().clone() {
+            craft_update::updater::Status::UpToDate => {
+                self.status = t(Key::UpToDate).into();
+                self.updater.dismiss_status();
+            }
+            craft_update::updater::Status::Failed(e) => {
+                self.status = e;
+                self.updater.dismiss_status();
+            }
+            _ => {}
+        }
 
         // Checa se o download do mpv terminou.
         if let Some(rx) = &self.mpv_check {
@@ -785,9 +696,9 @@ impl eframe::App for PlayerApp {
                             let _ = config::save(APP_ID, &self.cfg);
                         }
                         if ghost(ui, t(Key::CheckUpdates)).clicked() {
-                            self.check_updates();
+                            self.check_updates(ctx);
                         }
-                        if self.update_checking {
+                        if self.updater.status() == &craft_update::updater::Status::Checking {
                             ui.spinner();
                         }
                     });
@@ -940,10 +851,14 @@ impl eframe::App for PlayerApp {
             e.set_visible(self.idx.is_some() && self.mpv_ready());
         }
 
-        // Modal de update por cima de tudo (só abre quando o check
-        // devolveu algo — otherwise retorna no primeiro if).
-        if self.update_status.is_some() {
-            self.update_modal(ctx, &t);
+        // Prompt de update (craft_update): modal próprio do crate, por cima
+        // de tudo. "Atualizar e reiniciar" fecha o app pelo caminho normal
+        // (on_exit persiste o resume) — o helper do craft_update instala e
+        // relança depois que o processo sai.
+        match self.updater.show(ctx) {
+            craft_update::updater::Action::None => {}
+            craft_update::updater::Action::OpenUrl(url) => open_url(&url),
+            craft_update::updater::Action::Close => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
         }
     }
 
@@ -961,22 +876,11 @@ fn now_ms() -> u64 {
 
 // ── diálogos (mesmo desenho do Local-Keys) ───────────────────────────────
 
-/// Altura de clique decente para campos de dialogo.
-const FIELD_MIN_HEIGHT: f32 = 30.0;
-
-/// Cores derivadas do tema vigente (Tokens: Appearance System/Light/Dark).
+/// Cores derivadas do tema vigente (Tokens: Appearance System/Light/Dark),
+/// pro que sobrou de diálogo: os ghost buttons.
 #[derive(Clone, Copy)]
 struct Skin {
-    /// Fundo do cartão do diálogo (o "sunken" da paleta).
-    card: egui::Color32,
-    /// Fundo dos campos DENTRO do diálogo (o "base", o inverso do cartão).
-    field: egui::Color32,
-    accent: egui::Color32,
-    /// Texto sobre `accent` (pill primário).
-    on_accent: egui::Color32,
-    text: egui::Color32,
     muted: egui::Color32,
-    border: egui::Color32,
     /// Lavagem de hover (ghost buttons).
     hover: egui::Color32,
 }
@@ -988,94 +892,11 @@ impl Skin {
 
     fn from_visuals(v: &egui::Visuals) -> Self {
         let text = v.override_text_color.unwrap_or(v.widgets.noninteractive.fg_stroke.color);
-        let accent = v.selection.bg_fill;
         Self {
-            card: v.extreme_bg_color,
-            field: v.panel_fill,
-            accent,
-            on_accent: if luminance(accent) > 150.0 { egui::Color32::BLACK } else { egui::Color32::WHITE },
-            text,
             muted: text.gamma_multiply(0.6),
-            border: if v.dark_mode { egui::Color32::from_white_alpha(30) } else { egui::Color32::from_black_alpha(30) },
             hover: if v.dark_mode { egui::Color32::from_white_alpha(18) } else { egui::Color32::from_black_alpha(14) },
         }
     }
-}
-
-/// Luminância perceptual (0–255) — decide texto claro ou escuro sobre o accent.
-fn luminance(c: egui::Color32) -> f32 {
-    0.299 * f32::from(c.r()) + 0.587 * f32::from(c.g()) + 0.114 * f32::from(c.b())
-}
-
-fn modal_frame(ctx: &egui::Context) -> egui::Frame {
-    let style = ctx.style_of(ctx.theme());
-    let skin = Skin::from_visuals(&style.visuals);
-    egui::Frame::NONE
-        .fill(skin.card)
-        .stroke(egui::Stroke::new(1.0_f32, skin.border))
-        .corner_radius(egui::CornerRadius::same(10))
-        .inner_margin(egui::Margin::symmetric(20, 16))
-        .shadow(style.visuals.window_shadow)
-}
-
-/// Visuals de dentro do diálogo: campos com contorno e no tom "base" (o cartão
-/// é o "sunken" — sem isso o campo some no fundo do modal).
-fn begin_dialog(ui: &mut egui::Ui) {
-    let skin = Skin::of(ui);
-    let v = ui.visuals_mut();
-    v.extreme_bg_color = skin.field;
-    v.selection.stroke = egui::Stroke::new(1.5_f32, skin.accent);
-    let w = &mut v.widgets;
-    w.inactive.bg_stroke = egui::Stroke::new(1.0_f32, skin.border);
-    w.inactive.weak_bg_fill = skin.field;
-    w.hovered.bg_stroke = egui::Stroke::new(1.0_f32, skin.muted);
-    for state in [&mut w.inactive, &mut w.hovered, &mut w.active, &mut w.open] {
-        state.corner_radius = egui::CornerRadius::same(4);
-    }
-    ui.spacing_mut().interact_size.y = FIELD_MIN_HEIGHT;
-}
-
-/// Botão pill: `primary` preenche com o accent, o secundário fica no contorno.
-fn pill(ui: &mut egui::Ui, label: &str, primary: bool) -> egui::Response {
-    let skin = Skin::of(ui);
-    if primary {
-        pill_colored(ui, label, skin.accent, skin.on_accent, false)
-    } else {
-        pill_colored(ui, label, egui::Color32::TRANSPARENT, skin.text, true)
-    }
-}
-
-/// Pill com cores explícitas; `outline` desenha só a borda.
-fn pill_colored(ui: &mut egui::Ui, label: &str, fill: egui::Color32, ink: egui::Color32, outline: bool) -> egui::Response {
-    let skin = Skin::of(ui);
-    let enabled = ui.is_enabled();
-    let ink = if enabled { ink } else { skin.muted };
-    let font = egui::TextStyle::Button.resolve(ui.style());
-    let galley = ui.painter().layout_no_wrap(label.to_owned(), font, ink);
-    let (rect, resp) = ui.allocate_exact_size(egui::vec2(galley.size().x + 28.0, 28.0), egui::Sense::click());
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, enabled, label));
-    let hovered = resp.hovered() && enabled;
-    let fill = if !enabled {
-        fill.gamma_multiply(0.45)
-    } else if hovered {
-        fill.gamma_multiply(1.12)
-    } else {
-        fill.gamma_multiply(0.9)
-    };
-    let fill = if outline {
-        if hovered {
-            skin.hover
-        } else {
-            egui::Color32::TRANSPARENT
-        }
-    } else {
-        fill
-    };
-    let stroke = if outline { egui::Stroke::new(1.0_f32, skin.border) } else { egui::Stroke::NONE };
-    ui.painter().rect(rect, egui::CornerRadius::same(14), fill, stroke, egui::StrokeKind::Inside);
-    let pos = rect.center() - galley.size() / 2.0;
-    ui.painter().galley(pos, galley, ink);
-    resp
 }
 
 /// Ação de linha: transparente até o hover (o "ghost button" do local-pdf).

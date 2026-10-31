@@ -1,11 +1,15 @@
-//! Autoupdate do Local-Player — verifica releases no GitHub, baixa e substitui
-//! o executável em execução (Windows: renomeia .old + copia novo; Linux: substitui
-//! direto pois não há lock de arquivo no exe rodando).
-
-use std::io::Read;
+//! Autoupdate do LocalPlayer — verifica releases no GitHub e aplica a atualização.
+//! Windows: baixa o instalador NSIS (`local-player-setup.exe`) para o temp e o
+//! lança elevado (verb "runas") — o instalador substitui os arquivos e o app
+//! sai antes. Linux: substitui o executável direto (tar.gz/AppImage, sem lock
+//! de arquivo no exe rodando).
 
 const GITHUB_API: &str = "https://api.github.com/repos/Anon5T4R/Local-Player/releases/latest";
 const USER_AGENT: &str = "LocalPlayer-Updater";
+
+/// Código de retorno do ShellExecuteW quando o usuário recusa o prompt do UAC.
+#[cfg(windows)]
+const SE_ERR_UAC_CANCELLED: usize = 1223;
 
 #[derive(Debug, Clone)]
 pub enum UpdateStatus {
@@ -49,7 +53,7 @@ pub fn check_for_update() -> UpdateStatus {
             let name = a.get("name").and_then(|v| v.as_str())?;
             let url = a.get("browser_download_url").and_then(|v| v.as_str())?;
             #[cfg(windows)]
-            if name.ends_with("-windows-x64.zip") {
+            if name == "local-player-setup.exe" {
                 Some(url.to_string())
             } else {
                 None
@@ -86,63 +90,51 @@ fn version_gt(a: &str, b: &str) -> bool {
     false
 }
 
-/// Baixa o arquivo e substitui o executável atual.
+/// Mensagem de cancelamento benigno (usuário recusou o UAC) — o tratador na
+/// UI não mostra o modal de erro para esse caso, só fecha o dialog em paz.
+pub const CANCELLED: &str = "atualização cancelada pelo usuário";
+
+/// Baixa o instalador e o aplica.
 pub fn apply_update(download_url: &str) -> Result<(), String> {
     let client = ureq::AgentBuilder::new().user_agent(USER_AGENT).timeout_read(std::time::Duration::from_secs(60)).build();
 
     let resp = client.get(download_url).call().map_err(|e| format!("falha no download: {e}"))?;
 
-    let exe_path = std::env::current_exe().map_err(|e| format!("não achou o exe atual: {e}"))?;
-
     #[cfg(windows)]
     {
-        let old_path = exe_path.with_extension("exe.old");
-        let _ = std::fs::remove_file(&old_path);
-        std::fs::rename(&exe_path, &old_path).map_err(|e| format!("falha ao renomear exe atual: {e}"))?;
+        use windows::core::{HSTRING, PCWSTR};
+        use windows::Win32::UI::Shell::ShellExecuteW;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+        // Nome único por versão (tag no caminho do asset de release).
+        let tag = download_url.split("download/").nth(1).and_then(|rest| rest.split('/').next()).filter(|t| !t.is_empty()).unwrap_or("latest");
+        let dst = std::env::temp_dir().join(format!("local-player-setup-{tag}.exe"));
 
         let mut reader = resp.into_reader();
-        let mut zip_data = Vec::new();
-        reader.read_to_end(&mut zip_data).map_err(|e| format!("falha ao ler download: {e}"))?;
+        let mut dst_file = std::fs::File::create(&dst).map_err(|e| format!("falha ao criar {dst:?}: {e}"))?;
+        std::io::copy(&mut reader, &mut dst_file).map_err(|e| format!("falha ao baixar o instalador: {e}"))?;
+        drop(dst_file);
 
-        let mut zip = zip::ZipArchive::new(std::io::Cursor::new(zip_data)).map_err(|e| format!("zip inválido: {e}"))?;
-        let mut file_name = String::new();
-        for i in 0..zip.len() {
-            if let Ok(file) = zip.by_index(i) {
-                let name = file.name().to_string();
-                if name.ends_with(".exe") {
-                    file_name = name;
-                    break;
-                }
-            }
+        // Lança o instalador elevado (UAC). Sem /S: o progresso fica visível
+        // e o usuário confirma. Em seguida o app sai (o chamador fecha a
+        // janela) para o instalador substituir os arquivos sob Program Files.
+        let verb = HSTRING::from("runas");
+        let file = HSTRING::from(dst.as_os_str());
+        let res = unsafe { ShellExecuteW(None, PCWSTR(verb.as_ptr()), PCWSTR(file.as_ptr()), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL) };
+        let code = res.0 as usize;
+        if code > 32 {
+            Ok(())
+        } else if code == SE_ERR_UAC_CANCELLED {
+            Err(CANCELLED.to_string())
+        } else {
+            Err(format!("falha ao lançar o instalador (código {code})"))
         }
-        if file_name.is_empty() {
-            return Err("exe não encontrado no zip".to_string());
-        }
-        let mut exe_file = zip.by_name(&file_name).map_err(|e| format!("exe não encontrado no zip: {e}"))?;
-
-        std::io::copy(&mut exe_file, &mut std::fs::File::create(&exe_path).map_err(|e| format!("falha ao criar novo exe: {e}"))?)
-            .map_err(|e| format!("falha ao escrever exe: {e}"))?;
-
-        // Agenda limpeza do .old no próximo boot
-        #[cfg(windows)]
-        {
-            use std::os::windows::ffi::OsStrExt;
-            let old_wide: Vec<u16> = old_path.as_os_str().encode_wide().chain(Some(0)).collect();
-            let null: Vec<u16> = vec![0];
-            unsafe {
-                let _ = windows::Win32::Storage::FileSystem::MoveFileExW(
-                    windows::core::PCWSTR(old_wide.as_ptr()),
-                    windows::core::PCWSTR(null.as_ptr()),
-                    windows::Win32::Storage::FileSystem::MOVEFILE_DELAY_UNTIL_REBOOT,
-                );
-            }
-        }
-
-        Ok(())
     }
 
     #[cfg(not(windows))]
     {
+        use std::io::Read;
+        let exe_path = std::env::current_exe().map_err(|e| format!("não achou o exe atual: {e}"))?;
         let mut reader = resp.into_reader();
         let mut data = Vec::new();
         reader.read_to_end(&mut data).map_err(|e| format!("falha ao ler download: {e}"))?;

@@ -1,13 +1,13 @@
-[workspace]
+﻿[workspace]
 resolver = "3"
 members = ["xtask", "lab-ui"]
 default-members = [".", "lab-ui"]
-# EXCLUI libs/ do workspace — junto com o [patch.crates-io] é o que faz os
+# EXCLUI libs/ do workspace â€” junto com o [patch.crates-io] Ã© o que faz os
 # crates vendored daqui valerem (sem o exclude o cargo tenta resolver eles
 # como members e os patches silenciam).
 exclude = ["libs"]
 
-# Forks vendored (egui 6d518fc, winit a517b38) — receita no AGENTS.md do local-office.
+# Forks vendored (egui 6d518fc, winit a517b38) â€” receita no AGENTS.md do local-office.
 [patch.crates-io]
 ecolor = { path = "libs/egui/crates/ecolor/" }
 emath = { path = "libs/egui/crates/emath/" }
@@ -32,10 +32,10 @@ edition = "2021"
 license = "GPL-3.0-or-later"
 publish = false
 repository = "https://github.com/Anon5T4R/Local-Player"
-description = "Player de mídia 100% local e offline (mpv embutido) — piloto egui da avaliação da suíte Local"
+description = "Player de mÃ­dia 100% local e offline (mpv embutido) â€” piloto egui da avaliaÃ§Ã£o da suÃ­te Local"
 
 [build-dependencies]
-# Embute o ícone no .exe (Windows) — sem isso o Explorer mostra ícone genérico.
+# Embute o Ã­cone no .exe (Windows) â€” sem isso o Explorer mostra Ã­cone genÃ©rico.
 winresource = "0.1"
 
 [dependencies]
@@ -44,23 +44,23 @@ egui = "0.37"
 lab-ui = { path = "lab-ui" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# Ícone da janela (mesmo desenho do Local-Keys: include_bytes + decode)
+# Ãcone da janela (mesmo desenho do Local-Keys: include_bytes + decode)
 image = "0.25"
-# Autoupdate: HTTP sync + zip/tar.gz (mesmo desenho do Local-Keys)
+# Autoupdate: HTTP sync + tar.gz (Linux; Windows usa o setup.exe baixado)
 ureq = { version = "2", features = ["json"] }
-zip = "2"
 flate2 = "1"
 tar = "0.4"
-# SHA-256 do mpv baixado (o espelho é da suíte, mas o binário confere)
+# SHA-256 do mpv baixado (o espelho Ã© da suÃ­te, mas o binÃ¡rio confere)
 sha2 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
-# IPC com o mpv via named pipe (handle único + leitura não-bloqueante —
-# ver mpv.rs) + download/extração do mpv portátil (ureq + sevenz-rust2,
-# Rust puro). Diálogo nativo (rfd; no Linux o caminho é digitado —
-# política do lab: AppImage enxuto).
+# IPC com o mpv via named pipe (handle Ãºnico + leitura nÃ£o-bloqueante â€”
+# ver mpv.rs) + download/extraÃ§Ã£o do mpv portÃ¡til (ureq + sevenz-rust2,
+# Rust puro). DiÃ¡logo nativo (rfd; no Linux o caminho Ã© digitado â€”
+# polÃ­tica do lab: AppImage enxuto).
 windows = { version = "0.58", features = [
     "Win32_Storage_FileSystem",
+    "Win32_UI_Shell",
     "Win32_System_Pipes",
     "Win32_Security",
     "Win32_UI_WindowsAndMessaging",
@@ -72,8 +72,8 @@ rfd = { version = "0.17", default-features = false }
 sevenz-rust2 = "0.21"
 
 [target.'cfg(unix)'.dependencies]
-# Child X11 pro embed do vídeo (--wid do mpv); rwh expõe o XID da janela
-# eframe (X11/XWayland — Wayland puro cai pro mpv em janela própria).
+# Child X11 pro embed do vÃ­deo (--wid do mpv); rwh expÃµe o XID da janela
+# eframe (X11/XWayland â€” Wayland puro cai pro mpv em janela prÃ³pria).
 x11rb = { version = "0.13", default-features = false }
 raw-window-handle = "0.6"
 
@@ -82,3 +82,6 @@ opt-level = 3
 lto = true
 strip = true
 panic = "abort"
+
+
+

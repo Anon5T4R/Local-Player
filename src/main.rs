@@ -167,6 +167,10 @@ struct PlayerApp {
     update_checking: bool,
     update_status: Option<UpdateStatus>,
     update_rx: Option<std::sync::mpsc::Receiver<UpdateStatus>>,
+    /// Resultado do apply_update (thread → UI): Ok = fechar o app para o
+    /// instalador elevado substituir os arquivos; Err real = modal de erro.
+    apply_rx: Option<std::sync::mpsc::Receiver<Result<(), String>>>,
+    apply_close: bool,
     /// Autoupdate no STARTUP: só quando o app abriu direto (sem "abrir com"
     /// de arquivo) — assim não atrapalha quem quer só ver um vídeo. O
     /// modal só aparece se houver update disponível (Current/Error ficam
@@ -267,6 +271,8 @@ impl PlayerApp {
             update_checking: false,
             update_status: None,
             update_rx: None,
+            apply_rx: None,
+            apply_close: false,
             auto_update,
             auto_update_check: auto_update,
         }
@@ -358,6 +364,19 @@ impl PlayerApp {
                 }
             }
         }
+        // Drena o resultado do apply_update (instalador lançado em thread):
+        // Ok → fecha o app para o NSIS substituir os arquivos; recusa do
+        // UAC → silêncio; erro real → modal.
+        if let Some(rx) = &self.apply_rx {
+            if let Ok(res) = rx.try_recv() {
+                self.apply_rx = None;
+                match res {
+                    Ok(()) => self.apply_close = true,
+                    Err(e) if e != autoupdate::CANCELLED => self.update_status = Some(UpdateStatus::Error(e)),
+                    _ => {}
+                }
+            }
+        }
     }
 
     /// Modal de atualização disponível / já atual / erro.
@@ -407,14 +426,16 @@ impl PlayerApp {
         }
     }
 
-    /// Aplica a atualização (download + substitui exe).
+    /// Aplica a atualização (baixa o instalador e lança elevado em thread).
     fn apply_update(&mut self) {
         if let Some(UpdateStatus::Available { download_url, .. }) = &self.update_status {
             let url = download_url.clone();
             self.update_status = None;
+            let (tx, rx) = std::sync::mpsc::channel();
+            self.apply_rx = Some(rx);
             // Roda em thread para não travar a UI
             std::thread::spawn(move || {
-                let _ = autoupdate::apply_update(&url);
+                let _ = tx.send(autoupdate::apply_update(&url));
             });
         }
     }
@@ -465,6 +486,11 @@ impl eframe::App for PlayerApp {
         // Autoupdate: resultado do check em thread (mesmo desenho do
         // Local-Keys - nada de HTTP na UI thread).
         self.poll_update();
+        // Installador elevado já lançado (poll_update): fecha o app para
+        // o NSIS substituir os arquivos sob Program Files.
+        if self.apply_close {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
 
         // Autoupdate no STARTUP (só abriu direto, sem "abrir com"):
         // dispara o check uma única vez no primeiro frame. O modal só

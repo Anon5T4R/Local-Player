@@ -1,6 +1,29 @@
 [workspace]
+resolver = "3"
 members = ["xtask", "lab-ui"]
 default-members = [".", "lab-ui"]
+# EXCLUI libs/ do workspace — junto com o [patch.crates-io] é o que faz os
+# crates vendored daqui valerem (sem o exclude o cargo tenta resolver eles
+# como members e os patches silenciam).
+exclude = ["libs"]
+
+# Forks vendored (egui 6d518fc, winit a517b38) — receita no AGENTS.md do local-office.
+[patch.crates-io]
+ecolor = { path = "libs/egui/crates/ecolor/" }
+emath = { path = "libs/egui/crates/emath/" }
+epaint = { path = "libs/egui/crates/epaint/" }
+epaint_default_fonts = { path = "libs/egui/crates/epaint_default_fonts/" }
+egui = { path = "libs/egui/crates/egui/" }
+egui-winit = { path = "libs/egui/crates/egui-winit/" }
+egui-wgpu = { path = "libs/egui/crates/egui-wgpu/" }
+egui_glow = { path = "libs/egui/crates/egui_glow/" }
+egui_extras = { path = "libs/egui/crates/egui_extras/" }
+egui_kittest = { path = "libs/egui/crates/egui_kittest/" }
+egui_system_font_provider = { path = "libs/egui/crates/egui_system_font_provider/" }
+eframe = { path = "libs/egui/crates/eframe/" }
+egui_demo_lib = { path = "libs/egui/crates/egui_demo_lib/" }
+egui_inspection = { path = "libs/egui/crates/egui_inspection/" }
+winit = { path = "libs/winit/" }
 
 [package]
 name = "local-player"
@@ -16,8 +39,8 @@ description = "Player de mídia 100% local e offline (mpv embutido) — piloto e
 winresource = "0.1"
 
 [dependencies]
-eframe = "0.31"
-egui = "0.31"
+eframe = "0.37"
+egui = "0.37"
 lab-ui = { path = "lab-ui" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -32,17 +55,6 @@ tar = "0.4"
 sha2 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
-# Feature wgpu SÓ no Windows: o renderer glow (OpenGL) pinta por cima das
-# child windows do mpv (embed via --wid fica atrás de fundo azul); a
-# superfície D3D compõe via flip-model com as child windows por cima.
-# No Linux o glow/X11 segue como está (features são aditivas por alvo).
-eframe = { version = "0.31", features = ["wgpu"] }
-# O eframe 0.31 depende do wgpu com default-features = false — a feature
-# "wgpu" dele NÃO compila NENHUM backend nativo (sem isso: surface error
-# antes da janela abrir). O backend DX12 tem que ser ligado por uma dep
-# direta do MESMO wgpu (24, já no lock via eframe; unificação de features
-# faz o resto). Vulkan/metal/gl ficam de fora: D3D é o caminho aqui.
-wgpu = { version = "24", default-features = false, features = ["dx12"] }
 # IPC com o mpv via named pipe (handle único + leitura não-bloqueante —
 # ver mpv.rs) + download/extração do mpv portátil (ureq + sevenz-rust2,
 # Rust puro). Diálogo nativo (rfd; no Linux o caminho é digitado —

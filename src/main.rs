@@ -67,19 +67,24 @@ fn main() -> eframe::Result<()> {
     // O `mut` só é usado pelo bloco cfg(windows) que configura o wgpu.
     #[cfg_attr(not(windows), allow(unused_mut))]
     let mut options = eframe::NativeOptions { viewport, ..Default::default() };
-    // Renderer wgpu no Windows (mesmo molde do local-office/graphics.rs):
-    // o glow (OpenGL) cobre as child windows do mpv (embed via --wid fica
+    // Renderer wgpu no Windows (eframe 0.37 já traz wgpu com os backends
+    // padrão — DX12 entra pelo default features do wgpu): o glow (OpenGL)
+    // pinta por cima das child windows do mpv (embed via --wid fica
     // invisível — o "fundo azul"); a superfície D3D é composta pelo DWM
     // via flip-model COM as child windows acima dela. DX12 only (Vulkan
     // briga com drivers e o GL do wgpu não é caminho de produção); a
-    // env WGPU_BACKEND vence como escape. O compilador DX12 já é FXC por
-    // padrão no wgpu 24 (sem dxcompiler.dll de terceiros no search path).
+    // env WGPU_BACKEND vence como escape. DX12 compila com FXC
+    // (d3dcompiler_47.dll, parte do Windows) — o default do wgpu 30 é
+    // Auto/DXC, que pode carregar um dxcompiler.dll de terceiros no
+    // search path e perder a janela antes do primeiro frame (mesmo
+    // desenho do local-office/graphics.rs #603).
     #[cfg(windows)]
     {
         use eframe::egui_wgpu::WgpuSetup;
-        use eframe::wgpu::Backends;
+        use eframe::wgpu::{Backends, Dx12Compiler};
         if let WgpuSetup::CreateNew(create) = &mut options.wgpu_options.wgpu_setup {
             create.instance_descriptor.backends = Backends::from_env().unwrap_or(Backends::DX12);
+            create.instance_descriptor.backend_options.dx12.shader_compiler = Dx12Compiler::Fxc;
         }
         options.renderer = eframe::Renderer::Wgpu;
     }
@@ -366,7 +371,7 @@ impl PlayerApp {
     fn update_modal_inner(&mut self, ctx: &egui::Context, status: &UpdateStatus, t: &dyn Fn(Key) -> &'static str) {
         let mut apply = false;
         let mut close = false;
-        let resp = egui::Modal::new(egui::Id::new("update")).frame(modal_frame(ctx)).show(ctx, |ui| {
+        let resp = egui::Modal::new(egui::Id::unique("update")).frame(modal_frame(ctx)).show(ctx, |ui| {
             begin_dialog(ui);
             ui.set_width(420.0);
             ui.heading(t(Key::Update));
@@ -455,7 +460,8 @@ fn fmt_time(s: f64) -> String {
 }
 
 impl eframe::App for PlayerApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        let ctx = &ui.ctx().clone();
         // Autoupdate: resultado do check em thread (mesmo desenho do
         // Local-Keys - nada de HTTP na UI thread).
         self.poll_update();
@@ -535,8 +541,7 @@ impl eframe::App for PlayerApp {
         }
 
         // Drag & drop de arquivos (o placeholder promete; aqui entrega).
-        let dropped: Vec<String> =
-            ctx.input(|i| i.raw.dropped_files.iter().filter_map(|d| d.path.clone().map(|p| p.display().to_string())).collect());
+        let dropped: Vec<String> = ctx.input(|i| i.raw.dropped_files.iter().map(|d| d.path().display().to_string()).collect());
         if !dropped.is_empty() {
             let mut added = false;
             for f in dropped {
@@ -744,7 +749,7 @@ impl eframe::App for PlayerApp {
         // a `hover_bar` é o overlay de hover (mexeu o mouse → aparece).
         let show_panels = self.chrome;
         if show_panels {
-            egui::TopBottomPanel::top("topo").show(ctx, |ui| {
+            egui::containers::Panel::top("topo").show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.strong("LocalPlayer");
                     ui.label(egui::RichText::new(&self.now).small().weak());
@@ -765,7 +770,7 @@ impl eframe::App for PlayerApp {
         }
 
         if show_panels {
-            egui::TopBottomPanel::bottom("controles").show(ctx, |ui| {
+            egui::containers::Panel::bottom("controles").show(ui, |ui| {
                 ui.horizontal(|ui| {
                     let playing = self.idx.is_some() && self.mpv_ready();
                     let label = if self.paused { "▶" } else { "⏸" };
@@ -826,7 +831,7 @@ impl eframe::App for PlayerApp {
         // Playlist: painel inferior fixo (só na interface completa — no
         // hover a barra de controles entra sem ofuscar o vídeo).
         if self.chrome {
-            egui::TopBottomPanel::bottom("playlist").exact_height(140.0).resizable(false).show(ctx, |ui| {
+            egui::containers::Panel::bottom("playlist").exact_size(140.0).resizable(false).show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.strong(t(Key::Items));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -878,7 +883,7 @@ impl eframe::App for PlayerApp {
         let ppp = ctx.pixels_per_point();
         let mut video_rect = egui::Rect::NOTHING;
         let mut clicked_idle = false;
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             video_rect = ui.max_rect();
             if self.idx.is_none() {
                 // Parado (child oculto): o clique chega no egui — mostra a
@@ -917,7 +922,7 @@ impl eframe::App for PlayerApp {
     }
 
     /// Fechou o app no meio do vídeo: persiste o último checkpoint.
-    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+    fn on_exit(&mut self) {
         self.flush_resume();
     }
 }
@@ -933,7 +938,7 @@ fn now_ms() -> u64 {
 /// Altura de clique decente para campos de dialogo.
 const FIELD_MIN_HEIGHT: f32 = 30.0;
 
-/// Cores derivadas do tema vigente (nada fixo: o lab tem 5 paletas).
+/// Cores derivadas do tema vigente (Tokens: Appearance System/Light/Dark).
 #[derive(Clone, Copy)]
 struct Skin {
     /// Fundo do cartão do diálogo (o "sunken" da paleta).
@@ -977,7 +982,7 @@ fn luminance(c: egui::Color32) -> f32 {
 }
 
 fn modal_frame(ctx: &egui::Context) -> egui::Frame {
-    let style = ctx.style();
+    let style = ctx.style_of(ctx.theme());
     let skin = Skin::from_visuals(&style.visuals);
     egui::Frame::NONE
         .fill(skin.card)
@@ -1022,7 +1027,7 @@ fn pill_colored(ui: &mut egui::Ui, label: &str, fill: egui::Color32, ink: egui::
     let font = egui::TextStyle::Button.resolve(ui.style());
     let galley = ui.painter().layout_no_wrap(label.to_owned(), font, ink);
     let (rect, resp) = ui.allocate_exact_size(egui::vec2(galley.size().x + 28.0, 28.0), egui::Sense::click());
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, label));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, enabled, label));
     let hovered = resp.hovered() && enabled;
     let fill = if !enabled {
         fill.gamma_multiply(0.45)
@@ -1058,7 +1063,7 @@ fn ghost_ink(ui: &mut egui::Ui, label: &str, ink: egui::Color32) -> egui::Respon
     let font = egui::TextStyle::Button.resolve(ui.style());
     let galley = ui.painter().layout_no_wrap(label.to_owned(), font, ink);
     let (rect, resp) = ui.allocate_exact_size(egui::vec2(galley.size().x + 14.0, 24.0), egui::Sense::click());
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), label));
     if resp.hovered() {
         ui.painter().rect_filled(rect, egui::CornerRadius::same(6), skin.hover);
     }

@@ -27,8 +27,12 @@ Backlog vivo. Itens confirmados pelo João em 2026-10-30.
 
 ## Dívida técnica
 
-- [ ] Migração do UI do lab-ui para o stack craft (padrão storytold) —
-      decisão do João em 2026-10-30. Receita pronta no local-keys (branch
-      craft-ui → main): vendoring libs/, port 0.31→0.37, craft-i18n (scripts
-      `gen_i18n.py`/`shim_i18n.py` do keys servem), tema Tokens.
+(nenhuma)
+
+## Feitos (migração craft)
+
+- [x] **Migração do UI para o stack craft** — v0.11.0 (2026-10-31): egui
+      forkado 0.37 vendored em `libs/` (revs do keys), craft-i18n TSV
+      (pt/en/es, 149 chaves), tema Tokens System/Light/Dark, wgpu 30/DX12
+      nativo. Comportamentos preservados 1:1; embed/mpv/job object intactos.
 

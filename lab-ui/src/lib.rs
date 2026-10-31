@@ -9,7 +9,7 @@ pub mod workarea;
 
 use config::Config;
 use i18n::{Key, Lang};
-use theme::Theme;
+use theme::Appearance;
 
 /// Desenha os combos de idioma + tema (canto de configurações comum aos apps).
 /// Devolve `(config_changed, forget_quick_key_clicked)`.
@@ -25,7 +25,7 @@ pub fn settings_ui(ui: &mut egui::Ui, cfg: &mut Config, show_forget_quick_key: b
         });
 
         egui::ComboBox::from_label(i18n::t(cfg.lang, Key::Theme)).selected_text(cfg.theme.label()).width(100.0).show_ui(ui, |ui| {
-            for th in Theme::ALL {
+            for th in Appearance::ALL {
                 ui.selectable_value(&mut cfg.theme, th, th.label());
             }
         });

@@ -7,17 +7,17 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::i18n::Lang;
-use crate::theme::Theme;
+use crate::theme::Appearance;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Config {
-    pub theme: Theme,
+    pub theme: Appearance,
     pub lang: Lang,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { theme: Theme::Nature, lang: Lang::Pt }
+        Self { theme: Appearance::System, lang: Lang::Pt }
     }
 }
 
@@ -62,7 +62,7 @@ mod tests {
             .join(format!("lab-ui-test-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         let path = dir.join("config.json");
 
-        let cfg = Config { theme: Theme::PunkPrincess, lang: Lang::Es };
+        let cfg = Config { theme: Appearance::Dark, lang: Lang::Es };
         save_to(&path, &cfg).unwrap();
         assert_eq!(load_from(&path), cfg);
 

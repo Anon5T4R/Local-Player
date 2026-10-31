@@ -1,6 +1,24 @@
-//! i18n PT/EN/ES no espírito do padrao-apps: chaves enum (o compilador e o
-//! teste de completude cobrem o que o `tsc` cobria na suíte), idiomas com nome
-//! em endônimo no seletor.
+//! i18n via craft-i18n (padrão storytold): catálogos TSV em `i18n/locales/` embutidos
+//! pelo `build.rs` (fonte: `scripts/gen_i18n.py` converte este enum). O enum `Key`
+//! fica como API tipada (compilador cobre completude); o lookup é o motor do
+//! craft-i18n, com fallback `pt-br → pt → en` e ausência de tradução = inglês.
+
+use std::sync::LazyLock;
+
+use craft_i18n::I18n;
+
+include!(concat!(env!("OUT_DIR"), "/craft_i18n.rs"));
+
+/// Códigos dos idiomas oferecidos (mesmos do enum `Lang`).
+const OFFERED: &[&str] = &["en", "pt-br", "es"];
+
+static I18N: LazyLock<I18n> = LazyLock::new(|| {
+    let (i18n, problems) = I18n::new(CRAFT_I18N, OFFERED);
+    for p in problems {
+        eprintln!("lab-ui i18n: {p}");
+    }
+    i18n
+});
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Lang {
@@ -348,741 +366,165 @@ const KEYS: &[Key] = &[
 ];
 
 pub fn t(lang: Lang, key: Key) -> &'static str {
-    match key {
-        Key::Language => match lang {
-            Lang::Pt => "Idioma",
-            Lang::En => "Language",
-            Lang::Es => "Idioma",
-        },
-        Key::Theme => match lang {
-            Lang::Pt => "Tema",
-            Lang::En => "Theme",
-            Lang::Es => "Tema",
-        },
-        Key::Error => match lang {
-            Lang::Pt => "Erro",
-            Lang::En => "Error",
-            Lang::Es => "Error",
-        },
-        Key::Search => match lang {
-            Lang::Pt => "Buscar…",
-            Lang::En => "Search…",
-            Lang::Es => "Buscar…",
-        },
-        Key::Copy => match lang {
-            Lang::Pt => "Copiar",
-            Lang::En => "Copy",
-            Lang::Es => "Copiar",
-        },
+    let code = match lang {
+        Lang::Pt => "pt-br",
+        Lang::En => "en",
+        Lang::Es => "es",
+    };
+    // A fonte inglesa é a chave de lookup do catálogo (padrão craft-i18n).
+    let source = match key {
+        Key::Language => "Language",
+        Key::Theme => "Theme",
+        Key::Error => "Error",
+        Key::Search => "Search…",
+        Key::Copy => "Copy",
+        Key::Memory => "Memory",
+        Key::Cores => "Cores",
+        Key::Uptime => "Uptime",
+        Key::Disks => "Disks",
+        Key::Processes => "Processes",
+        Key::Filter => "Filter",
+        Key::Name => "Name",
+        Key::End => "End task",
+        Key::KillTitle => "End process?",
+        Key::KillAsk => "Unsaved work in that app is lost.",
+        Key::Confirm => "Confirm",
+        Key::Cancel => "Cancel",
+        Key::Clear => "Clear",
+        Key::ShowHide => "Show/Hide",
+        Key::Quit => "Quit",
+        Key::Pin => "Pin",
+        Key::Unpin => "Unpin",
+        Key::Delete => "Delete",
+        Key::Empty => "empty — copy something",
+        Key::Vault => "Vault",
+        Key::MasterPassword => "Master password",
+        Key::Unlock => "Unlock",
+        Key::NewVault => "New vault",
+        Key::WrongPassword => "wrong password or corrupted/tampered file",
+        Key::Add => "Add",
+        Key::Save => "Save",
+        Key::Items => "Items",
+        Key::Username => "Username",
+        Key::Password => "Password",
+        Key::Lock => "Lock",
+        Key::QuickUnlock => "Quick unlock on this PC",
+        Key::ForgetKey => "Forget key",
+        Key::Edit => "Edit",
+        Key::Install => "Install",
+        Key::Update => "Update",
+        Key::Open => "Open",
+        Key::StartMenu => "Start menu",
+        Key::Desktop => "Desktop",
+        Key::Installed => "installed",
+        Key::Available => "available",
+        Key::Downloading => "downloading",
+        Key::Refresh => "Refresh",
+        Key::UpToDate => "up to date",
+        Key::NotInstalled => "not installed",
+        Key::Uninstall => "Uninstall",
+        Key::Clean => "Cleanup",
+        Key::OpenFolder => "Open folder",
+        Key::UninstallAsk => "Uninstall and remove shortcuts?",
+        Key::Running => "running",
+        Key::Restart => "restart Lab Hub",
+        Key::TrashHint => "The item goes to trash — recoverable in the official LocalKeys.",
+        Key::Import => "Import",
+        Key::ImportBitwarden => "Bitwarden (encrypted export)",
+        Key::ImportFile => "File",
+        Key::ImportPassword => "File password",
+        Key::Imported => "items imported",
+        Key::SkippedCardIdentity => "card/identity skipped — the lab only manages login/note",
+        Key::ImportReportTitle => "Import",
+        Key::Generator => "Generator",
+        Key::Generate => "Generate",
+        Key::Use => "Use",
+        Key::Passphrase => "Passphrase",
+        Key::Words => "Words",
+        Key::Separator => "Separator",
+        Key::Capitalize => "Capitalize",
+        Key::IncludeNumber => "Include number",
+        Key::Length => "Length",
+        Key::Lowercase => "Lowercase",
+        Key::Uppercase => "Uppercase",
+        Key::Digits => "Digits",
+        Key::Symbols => "Symbols",
+        Key::Strength0 => "terrible",
+        Key::Strength1 => "weak",
+        Key::Strength2 => "fair",
+        Key::Strength3 => "strong",
+        Key::Strength4 => "excellent",
+        Key::ChangeMaster => "Change master password",
+        Key::OldPassword => "Current password",
+        Key::NewPassword => "New password",
+        Key::NewPasswordConfirm => "Confirm new password",
+        Key::MasterChanged => "master password changed",
+        Key::Attachments => "Attachments",
+        Key::AddAttachment => "Add attachment",
+        Key::SaveAttachment => "Save",
+        Key::NoAttachments => "no attachments",
+        Key::Settings => "Settings",
+        Key::Hotkey => "Global hotkey",
+        Key::Define => "Set…",
+        Key::Autostart => "Start with system",
+        Key::PressKeys => "press the keys…",
+        Key::CloseToTray => "Closing minimizes to tray.",
+        Key::Working => "working…",
+        Key::Unlocking => "unlocking…",
+        Key::Importing => "importing…",
+        Key::ReadingFile => "reading file…",
+        Key::ChangingMaster => "changing the master password…",
+        Key::AttachmentTooBig => "attachment too large (max 10 MiB — the whole vault is rewritten on every save)",
+        Key::Url => "URL",
+        Key::Notes => "Notes",
+        Key::Favorite => "Favorite",
+        Key::Reveal => "Show/hide",
+        Key::Export => "Export",
+        Key::ExportJson => "JSON (vault in the clear)",
+        Key::ExportCsv => "CSV (spreadsheet)",
+        Key::ExportWarning => "WARNING: the export is UNENCRYPTED — any app can read it. Use it only to migrate, then delete the file.",
+        Key::Exported => "exported",
+        Key::Trash => "Trash",
+        Key::TrashEmpty => "trash is empty",
+        Key::Restore => "Restore",
+        Key::Restored => "restored",
+        Key::DeleteForever => "Delete forever",
+        Key::Deleted => "deleted forever",
+        Key::Close => "Close",
+        Key::UpdateCheck => "Update",
+        Key::CheckUpdates => "Check for updates",
+        Key::CurrentVersion => "You are on the current version.",
+        Key::VersionLabel => "Version",
+        Key::UpdateAvailable => "Available",
+        Key::DownloadAndInstall => "Download and install",
+        Key::UpdateError => "Update check failed",
+        Key::Folders => "Folders",
+        Key::Folder => "Folder",
+        Key::NewFolder => "New folder",
+        Key::RenameFolder => "Rename folder",
+        Key::DeleteFolder => "Delete folder",
+        Key::NoFolder => "No folder",
+        Key::FolderName => "Folder name",
+        Key::FilterAttachments => "Attachments",
+        Key::DeleteAttachment => "Delete attachment",
+        Key::AllItems => "All",
+        Key::DragMediaHere => "Drag media here or pick from the playlist",
+        Key::AddFile => "Add file",
+        Key::AddFolder => "Add folder",
+        Key::Rotate => "Rotate",
+        Key::Mute => "Mute (M)",
+        Key::Unmute => "Unmute (M)",
+        Key::MpvDownloading => "Downloading mpv…",
+        Key::MpvClosed => "mpv closed",
+        Key::MpvNotInPath => "mpv is not on PATH — install it (e.g. sudo apt install mpv)",
         Key::Cpu => "CPU",
-        Key::Memory => match lang {
-            Lang::Pt => "Memória",
-            Lang::En => "Memory",
-            Lang::Es => "Memoria",
-        },
-        Key::Cores => match lang {
-            Lang::Pt => "Núcleos",
-            Lang::En => "Cores",
-            Lang::Es => "Núcleos",
-        },
-        Key::Uptime => match lang {
-            Lang::Pt => "Ligado há",
-            Lang::En => "Uptime",
-            Lang::Es => "Tiempo encendido",
-        },
-        Key::Disks => match lang {
-            Lang::Pt => "Discos",
-            Lang::En => "Disks",
-            Lang::Es => "Discos",
-        },
-        Key::Processes => match lang {
-            Lang::Pt => "Processos",
-            Lang::En => "Processes",
-            Lang::Es => "Procesos",
-        },
-        Key::Filter => match lang {
-            Lang::Pt => "Filtrar",
-            Lang::En => "Filter",
-            Lang::Es => "Filtrar",
-        },
-        Key::Name => match lang {
-            Lang::Pt => "Nome",
-            Lang::En => "Name",
-            Lang::Es => "Nombre",
-        },
-        Key::End => match lang {
-            Lang::Pt => "Encerrar",
-            Lang::En => "End task",
-            Lang::Es => "Finalizar",
-        },
-        Key::KillTitle => match lang {
-            Lang::Pt => "Encerrar processo?",
-            Lang::En => "End process?",
-            Lang::Es => "¿Finalizar proceso?",
-        },
-        Key::KillAsk => match lang {
-            Lang::Pt => "O trabalho não salvo deste app se perde.",
-            Lang::En => "Unsaved work in that app is lost.",
-            Lang::Es => "El trabajo no guardado de esa app se pierde.",
-        },
-        Key::Confirm => match lang {
-            Lang::Pt => "Confirmar",
-            Lang::En => "Confirm",
-            Lang::Es => "Confirmar",
-        },
-        Key::Cancel => match lang {
-            Lang::Pt => "Cancelar",
-            Lang::En => "Cancel",
-            Lang::Es => "Cancelar",
-        },
-        Key::Clear => match lang {
-            Lang::Pt => "Limpar",
-            Lang::En => "Clear",
-            Lang::Es => "Borrar",
-        },
-        Key::ShowHide => match lang {
-            Lang::Pt => "Mostrar/Ocultar",
-            Lang::En => "Show/Hide",
-            Lang::Es => "Mostrar/Ocultar",
-        },
-        Key::Quit => match lang {
-            Lang::Pt => "Sair",
-            Lang::En => "Quit",
-            Lang::Es => "Salir",
-        },
-        Key::Pin => match lang {
-            Lang::Pt => "Fixar",
-            Lang::En => "Pin",
-            Lang::Es => "Fijar",
-        },
-        Key::Unpin => match lang {
-            Lang::Pt => "Desafixar",
-            Lang::En => "Unpin",
-            Lang::Es => "Desfijar",
-        },
-        Key::Delete => match lang {
-            Lang::Pt => "Excluir",
-            Lang::En => "Delete",
-            Lang::Es => "Eliminar",
-        },
-        Key::Empty => match lang {
-            Lang::Pt => "vazio — copie algo",
-            Lang::En => "empty — copy something",
-            Lang::Es => "vacío — copia algo",
-        },
-        Key::Vault => match lang {
-            Lang::Pt => "Cofre",
-            Lang::En => "Vault",
-            Lang::Es => "Bóveda",
-        },
-        Key::MasterPassword => match lang {
-            Lang::Pt => "Senha mestra",
-            Lang::En => "Master password",
-            Lang::Es => "Contraseña maestra",
-        },
-        Key::Unlock => match lang {
-            Lang::Pt => "Destrancar",
-            Lang::En => "Unlock",
-            Lang::Es => "Desbloquear",
-        },
-        Key::NewVault => match lang {
-            Lang::Pt => "Novo cofre",
-            Lang::En => "New vault",
-            Lang::Es => "Nueva bóveda",
-        },
-        Key::WrongPassword => match lang {
-            Lang::Pt => "senha incorreta ou arquivo corrompido/adulterado",
-            Lang::En => "wrong password or corrupted/tampered file",
-            Lang::Es => "contraseña incorrecta o archivo corrupto/adulterado",
-        },
-        Key::Add => match lang {
-            Lang::Pt => "Adicionar",
-            Lang::En => "Add",
-            Lang::Es => "Añadir",
-        },
-        Key::Save => match lang {
-            Lang::Pt => "Salvar",
-            Lang::En => "Save",
-            Lang::Es => "Guardar",
-        },
-        Key::Items => match lang {
-            Lang::Pt => "Itens",
-            Lang::En => "Items",
-            Lang::Es => "Elementos",
-        },
-        Key::Username => match lang {
-            Lang::Pt => "Usuário",
-            Lang::En => "Username",
-            Lang::Es => "Usuario",
-        },
-        Key::Password => match lang {
-            Lang::Pt => "Senha",
-            Lang::En => "Password",
-            Lang::Es => "Contraseña",
-        },
-        Key::Lock => match lang {
-            Lang::Pt => "Trancar",
-            Lang::En => "Lock",
-            Lang::Es => "Bloquear",
-        },
         Key::Totp => "TOTP",
-        Key::QuickUnlock => match lang {
-            Lang::Pt => "Desbloqueio rápido neste PC",
-            Lang::En => "Quick unlock on this PC",
-            Lang::Es => "Desbloqueo rápido en este PC",
-        },
-        Key::ForgetKey => match lang {
-            Lang::Pt => "Esquecer chave",
-            Lang::En => "Forget key",
-            Lang::Es => "Olvidar clave",
-        },
-        Key::Edit => match lang {
-            Lang::Pt => "Editar",
-            Lang::En => "Edit",
-            Lang::Es => "Editar",
-        },
         Key::SecondsShort => "s",
-        Key::Install => match lang {
-            Lang::Pt => "Instalar",
-            Lang::En => "Install",
-            Lang::Es => "Instalar",
-        },
-        Key::Update => match lang {
-            Lang::Pt => "Atualizar",
-            Lang::En => "Update",
-            Lang::Es => "Actualizar",
-        },
-        Key::Open => match lang {
-            Lang::Pt => "Abrir",
-            Lang::En => "Open",
-            Lang::Es => "Abrir",
-        },
-        Key::StartMenu => match lang {
-            Lang::Pt => "Menu Iniciar",
-            Lang::En => "Start menu",
-            Lang::Es => "Menú Inicio",
-        },
-        Key::Desktop => match lang {
-            Lang::Pt => "Área de trabalho",
-            Lang::En => "Desktop",
-            Lang::Es => "Escritorio",
-        },
-        Key::Installed => match lang {
-            Lang::Pt => "instalado",
-            Lang::En => "installed",
-            Lang::Es => "instalado",
-        },
-        Key::Available => match lang {
-            Lang::Pt => "disponível",
-            Lang::En => "available",
-            Lang::Es => "disponible",
-        },
-        Key::Downloading => match lang {
-            Lang::Pt => "baixando",
-            Lang::En => "downloading",
-            Lang::Es => "descargando",
-        },
-        Key::Refresh => match lang {
-            Lang::Pt => "Atualizar lista",
-            Lang::En => "Refresh",
-            Lang::Es => "Actualizar lista",
-        },
-        Key::UpToDate => match lang {
-            Lang::Pt => "em dia",
-            Lang::En => "up to date",
-            Lang::Es => "al día",
-        },
-        Key::NotInstalled => match lang {
-            Lang::Pt => "não instalado",
-            Lang::En => "not installed",
-            Lang::Es => "no instalado",
-        },
-        Key::Uninstall => match lang {
-            Lang::Pt => "Desinstalar",
-            Lang::En => "Uninstall",
-            Lang::Es => "Desinstalar",
-        },
-        Key::Clean => match lang {
-            Lang::Pt => "Limpeza",
-            Lang::En => "Cleanup",
-            Lang::Es => "Limpieza",
-        },
-        Key::OpenFolder => match lang {
-            Lang::Pt => "Abrir pasta",
-            Lang::En => "Open folder",
-            Lang::Es => "Abrir carpeta",
-        },
-        Key::UninstallAsk => match lang {
-            Lang::Pt => "Desinstalar e remover atalhos?",
-            Lang::En => "Uninstall and remove shortcuts?",
-            Lang::Es => "¿Desinstalar y quitar accesos?",
-        },
-        Key::Running => match lang {
-            Lang::Pt => "rodando",
-            Lang::En => "running",
-            Lang::Es => "ejecutando",
-        },
-        Key::Restart => match lang {
-            Lang::Pt => "reinicie o Lab Hub",
-            Lang::En => "restart Lab Hub",
-            Lang::Es => "reinicie Lab Hub",
-        },
-        Key::TrashHint => match lang {
-            Lang::Pt => "O item vai pra lixeira — recuperável no LocalKeys oficial.",
-            Lang::En => "The item goes to trash — recoverable in the official LocalKeys.",
-            Lang::Es => "El elemento va a la papelera — recuperable en LocalKeys oficial.",
-        },
-        // ── lab-keys onda 6 ───────────────────────────────────────────
-        Key::Import => match lang {
-            Lang::Pt => "Importar",
-            Lang::En => "Import",
-            Lang::Es => "Importar",
-        },
         Key::ImportKdbx => "KeePass (.kdbx)",
-        Key::ImportBitwarden => match lang {
-            Lang::Pt => "Bitwarden (export cifrado)",
-            Lang::En => "Bitwarden (encrypted export)",
-            Lang::Es => "Bitwarden (exportación cifrada)",
-        },
         Key::ImportCsv => "CSV (Chrome/Edge/LastPass/1Password)",
-        Key::ImportFile => match lang {
-            Lang::Pt => "Arquivo",
-            Lang::En => "File",
-            Lang::Es => "Archivo",
-        },
-        Key::ImportPassword => match lang {
-            Lang::Pt => "Senha do arquivo",
-            Lang::En => "File password",
-            Lang::Es => "Contraseña del archivo",
-        },
-        // Só o sufixo — o número entra via format! no chamador.
-        Key::Imported => match lang {
-            Lang::Pt => "itens importados",
-            Lang::En => "items imported",
-            Lang::Es => "elementos importados",
-        },
-        Key::SkippedCardIdentity => match lang {
-            Lang::Pt => "de cartão/identidade pulados — o lab só gerencia login/nota",
-            Lang::En => "card/identity skipped — the lab only manages login/note",
-            Lang::Es => "de tarjeta/identidad omitidos — el lab solo gestiona login/nota",
-        },
-        Key::ImportReportTitle => match lang {
-            Lang::Pt => "Importação",
-            Lang::En => "Import",
-            Lang::Es => "Importación",
-        },
-        Key::Generator => match lang {
-            Lang::Pt => "Gerador",
-            Lang::En => "Generator",
-            Lang::Es => "Generador",
-        },
-        Key::Generate => match lang {
-            Lang::Pt => "Gerar",
-            Lang::En => "Generate",
-            Lang::Es => "Generar",
-        },
-        Key::Use => match lang {
-            Lang::Pt => "Usar",
-            Lang::En => "Use",
-            Lang::Es => "Usar",
-        },
-        Key::Passphrase => match lang {
-            Lang::Pt => "Passphrase",
-            Lang::En => "Passphrase",
-            Lang::Es => "Frase de contraseña",
-        },
-        Key::Words => match lang {
-            Lang::Pt => "Palavras",
-            Lang::En => "Words",
-            Lang::Es => "Palabras",
-        },
-        Key::Separator => match lang {
-            Lang::Pt => "Separador",
-            Lang::En => "Separator",
-            Lang::Es => "Separador",
-        },
-        Key::Capitalize => match lang {
-            Lang::Pt => "Capitalizar",
-            Lang::En => "Capitalize",
-            Lang::Es => "Capitalizar",
-        },
-        Key::IncludeNumber => match lang {
-            Lang::Pt => "Incluir número",
-            Lang::En => "Include number",
-            Lang::Es => "Incluir número",
-        },
-        Key::Length => match lang {
-            Lang::Pt => "Comprimento",
-            Lang::En => "Length",
-            Lang::Es => "Longitud",
-        },
-        Key::Lowercase => match lang {
-            Lang::Pt => "Minúsculas",
-            Lang::En => "Lowercase",
-            Lang::Es => "Minúsculas",
-        },
-        Key::Uppercase => match lang {
-            Lang::Pt => "Maiúsculas",
-            Lang::En => "Uppercase",
-            Lang::Es => "Mayúsculas",
-        },
-        Key::Digits => match lang {
-            Lang::Pt => "Dígitos",
-            Lang::En => "Digits",
-            Lang::Es => "Dígitos",
-        },
-        Key::Symbols => match lang {
-            Lang::Pt => "Símbolos",
-            Lang::En => "Symbols",
-            Lang::Es => "Símbolos",
-        },
-        Key::Strength0 => match lang {
-            Lang::Pt => "péssima",
-            Lang::En => "terrible",
-            Lang::Es => "pésima",
-        },
-        Key::Strength1 => match lang {
-            Lang::Pt => "ruim",
-            Lang::En => "weak",
-            Lang::Es => "débil",
-        },
-        Key::Strength2 => match lang {
-            Lang::Pt => "razoável",
-            Lang::En => "fair",
-            Lang::Es => "aceptable",
-        },
-        Key::Strength3 => match lang {
-            Lang::Pt => "forte",
-            Lang::En => "strong",
-            Lang::Es => "fuerte",
-        },
-        Key::Strength4 => match lang {
-            Lang::Pt => "ótima",
-            Lang::En => "excellent",
-            Lang::Es => "excelente",
-        },
-        Key::ChangeMaster => match lang {
-            Lang::Pt => "Trocar senha mestra",
-            Lang::En => "Change master password",
-            Lang::Es => "Cambiar contraseña maestra",
-        },
-        Key::OldPassword => match lang {
-            Lang::Pt => "Senha atual",
-            Lang::En => "Current password",
-            Lang::Es => "Contraseña actual",
-        },
-        Key::NewPassword => match lang {
-            Lang::Pt => "Nova senha",
-            Lang::En => "New password",
-            Lang::Es => "Nueva contraseña",
-        },
-        Key::NewPasswordConfirm => match lang {
-            Lang::Pt => "Confirmar nova senha",
-            Lang::En => "Confirm new password",
-            Lang::Es => "Confirmar nueva contraseña",
-        },
-        Key::MasterChanged => match lang {
-            Lang::Pt => "senha mestra trocada",
-            Lang::En => "master password changed",
-            Lang::Es => "contraseña maestra cambiada",
-        },
-        Key::Attachments => match lang {
-            Lang::Pt => "Anexos",
-            Lang::En => "Attachments",
-            Lang::Es => "Adjuntos",
-        },
-        Key::AddAttachment => match lang {
-            Lang::Pt => "Adicionar anexo",
-            Lang::En => "Add attachment",
-            Lang::Es => "Añadir adjunto",
-        },
-        Key::SaveAttachment => match lang {
-            Lang::Pt => "Salvar",
-            Lang::En => "Save",
-            Lang::Es => "Guardar",
-        },
-        Key::NoAttachments => match lang {
-            Lang::Pt => "sem anexos",
-            Lang::En => "no attachments",
-            Lang::Es => "sin adjuntos",
-        },
-        Key::Settings => match lang {
-            Lang::Pt => "Configurações",
-            Lang::En => "Settings",
-            Lang::Es => "Ajustes",
-        },
-        Key::Hotkey => match lang {
-            Lang::Pt => "Atalho global",
-            Lang::En => "Global hotkey",
-            Lang::Es => "Atajo global",
-        },
-        Key::Define => match lang {
-            Lang::Pt => "Definir…",
-            Lang::En => "Set…",
-            Lang::Es => "Definir…",
-        },
-        Key::Autostart => match lang {
-            Lang::Pt => "Iniciar com o sistema",
-            Lang::En => "Start with system",
-            Lang::Es => "Iniciar con el sistema",
-        },
-        Key::PressKeys => match lang {
-            Lang::Pt => "pressione as teclas…",
-            Lang::En => "press the keys…",
-            Lang::Es => "pulsa las teclas…",
-        },
-        Key::CloseToTray => match lang {
-            Lang::Pt => "Fechar minimiza pra bandeja.",
-            Lang::En => "Closing minimizes to tray.",
-            Lang::Es => "Cerrar minimiza a la bandeja.",
-        },
-        // ── lab-keys onda 17: jobs pesados (spinner) ──────────────────
-        Key::Working => match lang {
-            Lang::Pt => "trabalhando…",
-            Lang::En => "working…",
-            Lang::Es => "trabajando…",
-        },
-        Key::Unlocking => match lang {
-            Lang::Pt => "destrancando…",
-            Lang::En => "unlocking…",
-            Lang::Es => "desbloqueando…",
-        },
-        Key::Importing => match lang {
-            Lang::Pt => "importando…",
-            Lang::En => "importing…",
-            Lang::Es => "importando…",
-        },
-        Key::ReadingFile => match lang {
-            Lang::Pt => "lendo arquivo…",
-            Lang::En => "reading file…",
-            Lang::Es => "leyendo archivo…",
-        },
-        Key::ChangingMaster => match lang {
-            Lang::Pt => "trocando a senha mestra…",
-            Lang::En => "changing the master password…",
-            Lang::Es => "cambiando la contraseña maestra…",
-        },
-        // O limite é o do lab (o cofre inteiro é regravado a cada save).
-        Key::AttachmentTooBig => match lang {
-            Lang::Pt => "anexo grande demais (máx 10 MiB — o cofre inteiro é regravado a cada save)",
-            Lang::En => "attachment too large (max 10 MiB — the whole vault is rewritten on every save)",
-            Lang::Es => "adjunto demasiado grande (máx 10 MiB — la bóveda entera se regraba en cada guardado)",
-        },
-        // ── lab-keys onda 23 ─────────────────────────────────────────
-        Key::Url => match lang {
-            Lang::Pt => "URL",
-            Lang::En => "URL",
-            Lang::Es => "URL",
-        },
-        Key::Notes => match lang {
-            Lang::Pt => "Notas",
-            Lang::En => "Notes",
-            Lang::Es => "Notas",
-        },
-        Key::Favorite => match lang {
-            Lang::Pt => "Favorito",
-            Lang::En => "Favorite",
-            Lang::Es => "Favorito",
-        },
-        Key::Reveal => match lang {
-            Lang::Pt => "Mostrar/ocultar",
-            Lang::En => "Show/hide",
-            Lang::Es => "Mostrar/ocultar",
-        },
-        Key::Export => match lang {
-            Lang::Pt => "Exportar",
-            Lang::En => "Export",
-            Lang::Es => "Exportar",
-        },
-        Key::ExportJson => match lang {
-            Lang::Pt => "JSON (cofre em claro)",
-            Lang::En => "JSON (vault in the clear)",
-            Lang::Es => "JSON (bóveda en claro)",
-        },
-        Key::ExportCsv => match lang {
-            Lang::Pt => "CSV (planilha)",
-            Lang::En => "CSV (spreadsheet)",
-            Lang::Es => "CSV (hoja de cálculo)",
-        },
-        // Aviso FORTE: o export não tem cifra nenhuma.
-        Key::ExportWarning => match lang {
-            Lang::Pt => "ATENÇÃO: o export sai EM CLARO, sem cifra — qualquer app lê. Use só para migrar e apague o arquivo depois.",
-            Lang::En => "WARNING: the export is UNENCRYPTED — any app can read it. Use it only to migrate, then delete the file.",
-            Lang::Es => "ATENCIÓN: la exportación sale SIN CIFRAR — cualquier app puede leerla. Úsala solo para migrar y borra el archivo después.",
-        },
-        // Só o sufixo — o caminho entra via format! no chamador.
-        Key::Exported => match lang {
-            Lang::Pt => "exportado",
-            Lang::En => "exported",
-            Lang::Es => "exportado",
-        },
-        Key::Trash => match lang {
-            Lang::Pt => "Lixeira",
-            Lang::En => "Trash",
-            Lang::Es => "Papelera",
-        },
-        Key::TrashEmpty => match lang {
-            Lang::Pt => "lixeira vazia",
-            Lang::En => "trash is empty",
-            Lang::Es => "papelera vacía",
-        },
-        Key::Restore => match lang {
-            Lang::Pt => "Restaurar",
-            Lang::En => "Restore",
-            Lang::Es => "Restaurar",
-        },
-        Key::Restored => match lang {
-            Lang::Pt => "restaurado",
-            Lang::En => "restored",
-            Lang::Es => "restaurado",
-        },
-        Key::DeleteForever => match lang {
-            Lang::Pt => "Excluir de vez",
-            Lang::En => "Delete forever",
-            Lang::Es => "Eliminar para siempre",
-        },
-        Key::Deleted => match lang {
-            Lang::Pt => "excluído de vez",
-            Lang::En => "deleted forever",
-            Lang::Es => "eliminado para siempre",
-        },
-        Key::Close => match lang {
-            Lang::Pt => "Fechar",
-            Lang::En => "Close",
-            Lang::Es => "Cerrar",
-        },
-        Key::UpdateCheck => match lang {
-            Lang::Pt => "Atualização",
-            Lang::En => "Update",
-            Lang::Es => "Actualización",
-        },
-        Key::CheckUpdates => match lang {
-            Lang::Pt => "Verificar atualizações",
-            Lang::En => "Check for updates",
-            Lang::Es => "Buscar actualizaciones",
-        },
-        Key::CurrentVersion => match lang {
-            Lang::Pt => "Você está na versão atual.",
-            Lang::En => "You are on the current version.",
-            Lang::Es => "Está en la versión actual.",
-        },
-        Key::VersionLabel => match lang {
-            Lang::Pt => "Versão",
-            Lang::En => "Version",
-            Lang::Es => "Versión",
-        },
-        Key::UpdateAvailable => match lang {
-            Lang::Pt => "Disponível",
-            Lang::En => "Available",
-            Lang::Es => "Disponible",
-        },
-        Key::DownloadAndInstall => match lang {
-            Lang::Pt => "Baixar e instalar",
-            Lang::En => "Download and install",
-            Lang::Es => "Descargar e instalar",
-        },
-        Key::UpdateError => match lang {
-            Lang::Pt => "Erro ao verificar atualização",
-            Lang::En => "Update check failed",
-            Lang::Es => "Error al buscar actualización",
-        },
-        Key::Folders => match lang {
-            Lang::Pt => "Pastas",
-            Lang::En => "Folders",
-            Lang::Es => "Carpetas",
-        },
-        Key::Folder => match lang {
-            Lang::Pt => "Pasta",
-            Lang::En => "Folder",
-            Lang::Es => "Carpeta",
-        },
-        Key::NewFolder => match lang {
-            Lang::Pt => "Nova pasta",
-            Lang::En => "New folder",
-            Lang::Es => "Nueva carpeta",
-        },
-        Key::RenameFolder => match lang {
-            Lang::Pt => "Renomear pasta",
-            Lang::En => "Rename folder",
-            Lang::Es => "Renombrar carpeta",
-        },
-        Key::DeleteFolder => match lang {
-            Lang::Pt => "Excluir pasta",
-            Lang::En => "Delete folder",
-            Lang::Es => "Eliminar carpeta",
-        },
-        Key::NoFolder => match lang {
-            Lang::Pt => "Sem pasta",
-            Lang::En => "No folder",
-            Lang::Es => "Sin carpeta",
-        },
-        Key::FolderName => match lang {
-            Lang::Pt => "Nome da pasta",
-            Lang::En => "Folder name",
-            Lang::Es => "Nombre de la carpeta",
-        },
-        Key::FilterAttachments => match lang {
-            Lang::Pt => "Anexos",
-            Lang::En => "Attachments",
-            Lang::Es => "Adjuntos",
-        },
-        Key::DeleteAttachment => match lang {
-            Lang::Pt => "Excluir anexo",
-            Lang::En => "Delete attachment",
-            Lang::Es => "Eliminar adjunto",
-        },
-        Key::AllItems => match lang {
-            Lang::Pt => "Todas",
-            Lang::En => "All",
-            Lang::Es => "Todas",
-        },
-        // lab-player
-        Key::DragMediaHere => match lang {
-            Lang::Pt => "Arraste mídia aqui ou selecione na playlist",
-            Lang::En => "Drag media here or pick from the playlist",
-            Lang::Es => "Arrastra el medio aquí o elige de la lista",
-        },
-        Key::AddFile => match lang {
-            Lang::Pt => "Adicionar arquivo",
-            Lang::En => "Add file",
-            Lang::Es => "Agregar archivo",
-        },
-        Key::AddFolder => match lang {
-            Lang::Pt => "Adicionar pasta",
-            Lang::En => "Add folder",
-            Lang::Es => "Agregar carpeta",
-        },
-        Key::Rotate => match lang {
-            Lang::Pt => "Girar",
-            Lang::En => "Rotate",
-            Lang::Es => "Rotar",
-        },
-        Key::Mute => match lang {
-            Lang::Pt => "Mutar (M)",
-            Lang::En => "Mute (M)",
-            Lang::Es => "Silenciar (M)",
-        },
-        Key::Unmute => match lang {
-            Lang::Pt => "Desmutar (M)",
-            Lang::En => "Unmute (M)",
-            Lang::Es => "Activar sonido (M)",
-        },
-        Key::MpvDownloading => match lang {
-            Lang::Pt => "Baixando mpv…",
-            Lang::En => "Downloading mpv…",
-            Lang::Es => "Descargando mpv…",
-        },
-        Key::MpvClosed => match lang {
-            Lang::Pt => "mpv fechado",
-            Lang::En => "mpv closed",
-            Lang::Es => "mpv cerrado",
-        },
-        Key::MpvNotInPath => match lang {
-            Lang::Pt => "mpv não está no PATH — instale (ex.: sudo apt install mpv)",
-            Lang::En => "mpv is not on PATH — install it (e.g. sudo apt install mpv)",
-            Lang::Es => "mpv no está en el PATH — instálalo (ej.: sudo apt install mpv)",
-        },
-    }
+    };
+    let craft_lang = I18N.from_code(code).unwrap_or_else(|| I18N.from_code("en").expect("en é builtin"));
+    I18N.t(craft_lang, source)
 }
 
 #[cfg(test)]
@@ -1099,5 +541,13 @@ mod tests {
                 assert!(!s.is_empty(), "chave {key:?} vazia em {lang:?}");
             }
         }
+    }
+
+    /// O motor craft-i18n está ligado: pt-br sai do catálogo TSV, não do inglês.
+    #[test]
+    fn craft_i18n_busca_no_catalogo() {
+        assert_eq!(t(Lang::Pt, Key::Mute), "Mutar (M)");
+        assert_eq!(t(Lang::Es, Key::Unmute), "Activar sonido (M)");
+        assert_eq!(t(Lang::En, Key::Mute), "Mute (M)");
     }
 }

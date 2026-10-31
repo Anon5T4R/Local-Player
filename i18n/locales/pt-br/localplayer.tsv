@@ -1,0 +1,149 @@
+	Language	Idioma
+	Theme	Tema
+	Error	Erro
+	Search…	Buscar…
+	Copy	Copiar
+	Memory	Memória
+	Cores	Núcleos
+	Uptime	Ligado há
+	Disks	Discos
+	Processes	Processos
+	Filter	Filtrar
+	Name	Nome
+	End task	Encerrar
+	End process?	Encerrar processo?
+	Unsaved work in that app is lost.	O trabalho não salvo deste app se perde.
+	Confirm	Confirmar
+	Cancel	Cancelar
+	Clear	Limpar
+	Show/Hide	Mostrar/Ocultar
+	Quit	Sair
+	Pin	Fixar
+	Unpin	Desafixar
+	Delete	Excluir
+	empty — copy something	vazio — copie algo
+	Vault	Cofre
+	Master password	Senha mestra
+	Unlock	Destrancar
+	New vault	Novo cofre
+	wrong password or corrupted/tampered file	senha incorreta ou arquivo corrompido/adulterado
+	Add	Adicionar
+	Save	Salvar
+	Items	Itens
+	Username	Usuário
+	Password	Senha
+	Lock	Trancar
+	Quick unlock on this PC	Desbloqueio rápido neste PC
+	Forget key	Esquecer chave
+	Edit	Editar
+	Install	Instalar
+	Update	Atualizar
+	Open	Abrir
+	Start menu	Menu Iniciar
+	Desktop	Área de trabalho
+	installed	instalado
+	available	disponível
+	downloading	baixando
+	Refresh	Atualizar lista
+	up to date	em dia
+	not installed	não instalado
+	Uninstall	Desinstalar
+	Cleanup	Limpeza
+	Open folder	Abrir pasta
+	Uninstall and remove shortcuts?	Desinstalar e remover atalhos?
+	running	rodando
+	restart Lab Hub	reinicie o Lab Hub
+	The item goes to trash — recoverable in the official LocalKeys.	O item vai pra lixeira — recuperável no LocalKeys oficial.
+	Import	Importar
+	Bitwarden (encrypted export)	Bitwarden (export cifrado)
+	File	Arquivo
+	File password	Senha do arquivo
+	items imported	itens importados
+	card/identity skipped — the lab only manages login/note	de cartão/identidade pulados — o lab só gerencia login/nota
+	Import	Importação
+	Generator	Gerador
+	Generate	Gerar
+	Use	Usar
+	Passphrase	Passphrase
+	Words	Palavras
+	Separator	Separador
+	Capitalize	Capitalizar
+	Include number	Incluir número
+	Length	Comprimento
+	Lowercase	Minúsculas
+	Uppercase	Maiúsculas
+	Digits	Dígitos
+	Symbols	Símbolos
+	terrible	péssima
+	weak	ruim
+	fair	razoável
+	strong	forte
+	excellent	ótima
+	Change master password	Trocar senha mestra
+	Current password	Senha atual
+	New password	Nova senha
+	Confirm new password	Confirmar nova senha
+	master password changed	senha mestra trocada
+	Attachments	Anexos
+	Add attachment	Adicionar anexo
+	Save	Salvar
+	no attachments	sem anexos
+	Settings	Configurações
+	Global hotkey	Atalho global
+	Set…	Definir…
+	Start with system	Iniciar com o sistema
+	press the keys…	pressione as teclas…
+	Closing minimizes to tray.	Fechar minimiza pra bandeja.
+	working…	trabalhando…
+	unlocking…	destrancando…
+	importing…	importando…
+	reading file…	lendo arquivo…
+	changing the master password…	trocando a senha mestra…
+	attachment too large (max 10 MiB — the whole vault is rewritten on every save)	anexo grande demais (máx 10 MiB — o cofre inteiro é regravado a cada save)
+	URL	URL
+	Notes	Notas
+	Favorite	Favorito
+	Show/hide	Mostrar/ocultar
+	Export	Exportar
+	JSON (vault in the clear)	JSON (cofre em claro)
+	CSV (spreadsheet)	CSV (planilha)
+	WARNING: the export is UNENCRYPTED — any app can read it. Use it only to migrate, then delete the file.	ATENÇÃO: o export sai EM CLARO, sem cifra — qualquer app lê. Use só para migrar e apague o arquivo depois.
+	exported	exportado
+	Trash	Lixeira
+	trash is empty	lixeira vazia
+	Restore	Restaurar
+	restored	restaurado
+	Delete forever	Excluir de vez
+	deleted forever	excluído de vez
+	Close	Fechar
+	Update	Atualização
+	Check for updates	Verificar atualizações
+	You are on the current version.	Você está na versão atual.
+	Version	Versão
+	Available	Disponível
+	Download and install	Baixar e instalar
+	Update check failed	Erro ao verificar atualização
+	Folders	Pastas
+	Folder	Pasta
+	New folder	Nova pasta
+	Rename folder	Renomear pasta
+	Delete folder	Excluir pasta
+	No folder	Sem pasta
+	Folder name	Nome da pasta
+	Attachments	Anexos
+	Delete attachment	Excluir anexo
+	All	Todas
+	Drag media here or pick from the playlist	Arraste mídia aqui ou selecione na playlist
+	Add file	Adicionar arquivo
+	Add folder	Adicionar pasta
+	Rotate	Girar
+	Mute (M)	Mutar (M)
+	Unmute (M)	Desmutar (M)
+	Downloading mpv…	Baixando mpv…
+	mpv closed	mpv fechado
+	mpv is not on PATH — install it (e.g. sudo apt install mpv)	mpv não está no PATH — instale (ex.: sudo apt install mpv)
+	CPU	CPU
+	TOTP	TOTP
+	s	s
+	KeePass (.kdbx)	KeePass (.kdbx)
+	CSV (Chrome/Edge/LastPass/1Password)	CSV (Chrome/Edge/LastPass/1Password)

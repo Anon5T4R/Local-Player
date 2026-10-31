@@ -32,6 +32,17 @@ tar = "0.4"
 sha2 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
+# Feature wgpu SÓ no Windows: o renderer glow (OpenGL) pinta por cima das
+# child windows do mpv (embed via --wid fica atrás de fundo azul); a
+# superfície D3D compõe via flip-model com as child windows por cima.
+# No Linux o glow/X11 segue como está (features são aditivas por alvo).
+eframe = { version = "0.31", features = ["wgpu"] }
+# O eframe 0.31 depende do wgpu com default-features = false — a feature
+# "wgpu" dele NÃO compila NENHUM backend nativo (sem isso: surface error
+# antes da janela abrir). O backend DX12 tem que ser ligado por uma dep
+# direta do MESMO wgpu (24, já no lock via eframe; unificação de features
+# faz o resto). Vulkan/metal/gl ficam de fora: D3D é o caminho aqui.
+wgpu = { version = "24", default-features = false, features = ["dx12"] }
 # IPC com o mpv via named pipe (handle único + leitura não-bloqueante —
 # ver mpv.rs) + download/extração do mpv portátil (ureq + sevenz-rust2,
 # Rust puro). Diálogo nativo (rfd; no Linux o caminho é digitado —

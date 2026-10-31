@@ -47,7 +47,6 @@ pub enum Cmd {
     /// Mutar/desmutar (`set_property "mute"` — o UI guarda o estado).
     Mute(bool),
     SeekAbsolute(f64),
-    #[allow(dead_code)] // comando suportado pelo motor; a UI ainda não envia
     SeekRelative(f64),
     Volume(f64),
     /// Rotação do vídeo em graus absolutos (0/90/180/270 — o UI guarda o

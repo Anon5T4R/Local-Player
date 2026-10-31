@@ -64,7 +64,23 @@ fn main() -> eframe::Result<()> {
     if let Some(icon) = load_icon() {
         viewport = viewport.with_icon(icon);
     }
-    let options = eframe::NativeOptions { viewport, ..Default::default() };
+    let mut options = eframe::NativeOptions { viewport, ..Default::default() };
+    // Renderer wgpu no Windows (mesmo molde do local-office/graphics.rs):
+    // o glow (OpenGL) cobre as child windows do mpv (embed via --wid fica
+    // invisível — o "fundo azul"); a superfície D3D é composta pelo DWM
+    // via flip-model COM as child windows acima dela. DX12 only (Vulkan
+    // briga com drivers e o GL do wgpu não é caminho de produção); a
+    // env WGPU_BACKEND vence como escape. O compilador DX12 já é FXC por
+    // padrão no wgpu 24 (sem dxcompiler.dll de terceiros no search path).
+    #[cfg(windows)]
+    {
+        use eframe::egui_wgpu::WgpuSetup;
+        use eframe::wgpu::Backends;
+        if let WgpuSetup::CreateNew(create) = &mut options.wgpu_options.wgpu_setup {
+            create.instance_descriptor.backends = Backends::from_env().unwrap_or(Backends::DX12);
+        }
+        options.renderer = eframe::Renderer::Wgpu;
+    }
     eframe::run_native(
         APP_ID,
         options,
@@ -439,7 +455,7 @@ fn fmt_time(s: f64) -> String {
 impl eframe::App for PlayerApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         // Autoupdate: resultado do check em thread (mesmo desenho do
-        // Local-Keys — nada de HTTP na UI thread).
+        // Local-Keys - nada de HTTP na UI thread).
         self.poll_update();
 
         // Autoupdate no STARTUP (só abriu direto, sem "abrir com"):
@@ -636,6 +652,26 @@ impl eframe::App for PlayerApp {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
                 let _ = self.cmd_tx.send(Cmd::Fullscreen(false));
             }
+        }
+
+        // Espaço / setas: agora o teclado do vídeo chega ao egui (subclasse na
+        // janela interna do mpv), então o app é o único dono dos bindings.
+        if ctx.input(|i| i.key_pressed(egui::Key::Space)) && self.idx.is_some() && self.mpv_ready() {
+            let _ = self.cmd_tx.send(if self.paused { Cmd::Unpause } else { Cmd::Pause });
+        }
+        if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
+            let _ = self.cmd_tx.send(Cmd::SeekRelative(10.0));
+        }
+        if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
+            let _ = self.cmd_tx.send(Cmd::SeekRelative(-10.0));
+        }
+        if ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+            self.volume = (self.volume + 5.0).min(100.0);
+            let _ = self.cmd_tx.send(Cmd::Volume(self.volume));
+        }
+        if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
+            self.volume = (self.volume - 5.0).max(0.0);
+            let _ = self.cmd_tx.send(Cmd::Volume(self.volume));
         }
 
         // ── Mouse: atividade → overlay de controles + cursor ──────────

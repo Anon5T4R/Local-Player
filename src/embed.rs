@@ -321,8 +321,5 @@ mod imp {
         pub fn last_mouse_move(&self) -> u64 {
             self.last_move.load(Ordering::Relaxed)
         }
-
-        /// Sem efeito no Linux por enquanto (ver poll_events).
-        pub fn set_cursor_hidden(&self, _hide: bool) {}
     }
 }

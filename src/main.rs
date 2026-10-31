@@ -64,6 +64,8 @@ fn main() -> eframe::Result<()> {
     if let Some(icon) = load_icon() {
         viewport = viewport.with_icon(icon);
     }
+    // O `mut` só é usado pelo bloco cfg(windows) que configura o wgpu.
+    #[cfg_attr(not(windows), allow(unused_mut))]
     let mut options = eframe::NativeOptions { viewport, ..Default::default() };
     // Renderer wgpu no Windows (mesmo molde do local-office/graphics.rs):
     // o glow (OpenGL) cobre as child windows do mpv (embed via --wid fica

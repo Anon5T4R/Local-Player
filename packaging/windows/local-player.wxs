@@ -71,6 +71,11 @@
           <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Local Player"
               Description="LocalPlayer media player" WorkingDirectory="INSTALLFOLDER" Advertise="yes"
               Icon="LocalPlayerIcon.ico" IconIndex="0" />
+          <!-- Atalho no desktop (o NSIS antigo criava; per-machine = desktop
+               comum, visível pra todos os usuários). -->
+          <Shortcut Id="DesktopShortcut" Directory="DesktopFolder" Name="Local Player"
+              Description="LocalPlayer media player" WorkingDirectory="INSTALLFOLDER" Advertise="yes"
+              Icon="LocalPlayerIcon.ico" IconIndex="0" />
         </File>
 
         <RegistryValue Root="HKMU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\local-player.exe" Value="[#LocalPlayerExe]" Type="string" />

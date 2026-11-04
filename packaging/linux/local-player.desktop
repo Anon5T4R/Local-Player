@@ -1,6 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=LocalPlayer
+GenericName=Media Player
+Keywords=player;media;video;music;audio;local;
 Exec=local-player
 Icon=local-player
 Categories=AudioVideo;Video;Audio;

@@ -688,8 +688,14 @@ impl eframe::App for PlayerApp {
         if show_panels {
             egui::containers::Panel::top("topo").show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.strong("LocalPlayer");
-                    ui.label(egui::RichText::new(&self.now).small().weak());
+                    // Rótulo/hora só quando há largura: em janela estreita o
+                    // right_to_left abaixo estoura pra esquerda e desenharia
+                    // o botão de atualizações por cima do rótulo (a titlebar
+                    // já identifica o app).
+                    if ui.available_width() >= 620.0 {
+                        ui.strong("LocalPlayer");
+                        ui.label(egui::RichText::new(&self.now).small().weak());
+                    }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if lab_ui::settings_ui(ui, &mut self.cfg, false).0 {
                             theme::apply(ctx, self.cfg.theme);

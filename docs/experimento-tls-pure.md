@@ -1,4 +1,4 @@
-# Experimento: TLS 100% Rust no update (Local Player RS)
+# Experimento: TLS 100% Rust no update (Local Player)
 
 > **Decisão do João (2026-11-08):** o provider `rustls-rustcrypto` é o caminho **único**, sem
 > fallback e sem provider C no binário ("até melhor não ter pra ver de verdade"). Não é padrão da
@@ -66,7 +66,7 @@ tls_provider (depois) = tls_provider=pure
 
 O teste (1) faz um handshake direto com `api.github.com` usando o provider puro e imprime
 protocolo/suite, e (2) roda o caminho real do `craft-update` (`Http` + `check_for_update`) contra
-`Anon5T4R/Local-Player-RS`. Precisa de rede; por isso é `#[ignore]` (não roda no CI).
+`Anon5T4R/Local-Player`. Precisa de rede; por isso é `#[ignore]` (não roda no CI).
 
 ## `cargo tree -i ring`
 

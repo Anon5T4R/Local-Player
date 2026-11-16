@@ -168,7 +168,7 @@ jobs:
           set -euo pipefail
           gh release create "${GITHUB_REF_NAME}" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "Local Player RS ${GITHUB_REF_NAME}" \
+            --title "Local Player ${GITHUB_REF_NAME}" \
             --notes "Player de mídia 100% local e offline em Rust puro." \
             dist/windows/* dist/linux/* dist/arch/* dist/SHA256SUMS.txt \
           || gh release upload "${GITHUB_REF_NAME}" --repo "$GITHUB_REPOSITORY" --clobber \

@@ -7,7 +7,7 @@
   <id>com.local.localplayer</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
-  <name>Local Player RS</name>
+  <name>Local Player</name>
   <summary>Play local video and audio files, fully offline</summary>
   <developer id="com.local.localplayer">
     <name>Local Player RS contributors</name>

@@ -1,4 +1,4 @@
-# AGENTS.md — Local Player RS
+# AGENTS.md - Local Player
 
 Player de mídia 100% local e offline em Rust puro (sucessor em teste do
 `local-player`, que usava mpv + IPC). Rust puro + egui, app single-crate.

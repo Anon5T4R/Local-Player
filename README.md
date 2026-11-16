@@ -1,4 +1,4 @@
-# Local Player RS
+# Local Player
 
 **Player de mídia 100% local e offline em Rust puro.** Candidato a sucessor do
 [Local-Player](https://github.com/Anon5T4R/Local-Player) (que roda o mpv como
@@ -17,7 +17,7 @@ runtime, sem telemetria.
 ## Download
 
 Assets de cada release em
-[Releases](https://github.com/Anon5T4R/Local-Player-RS/releases):
+[Releases](https://github.com/Anon5T4R/Local-Player/releases):
 
 | Asset | O que é |
 | --- | --- |

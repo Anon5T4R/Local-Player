@@ -1,6 +1,6 @@
 # Contribuições para o upstream `storytold/filmcraft`
 
-Este diretório guarda o que o Local Player RS mudou no FilmCraft vendorizado
+Este diretório guarda o que o Local Player mudou no FilmCraft vendorizado
 (`libs/filmcraft`) e os patches prontos para virar PR no repositório upstream.
 **Nada foi submetido** — é preparação.
 

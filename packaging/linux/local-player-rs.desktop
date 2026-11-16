@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Local Player RS
+Name=Local Player
 GenericName=Media Player
 Keywords=player;media;video;music;audio;subtitles;local;
 Exec=local-player-rs %F

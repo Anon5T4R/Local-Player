@@ -1,4 +1,4 @@
-//! Local Player RS — player de mídia 100% local e offline em Rust puro.
+//! Local Player - player de mídia 100% local e offline em Rust puro.
 //!
 //! Fases 2–4: shell egui/eframe da suíte (playlist de arquivo/pasta,
 //! drag-and-drop, "abrir com", tema, i18n e autoupdate), motor de áudio de
@@ -42,11 +42,13 @@ const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// confere os dois pra reconhecer a instalação).
 static APP: craft_update::App = craft_update::App {
     id: "local-player-rs",
-    name: "Local Player RS",
+    name: "Local Player",
     tagline: "Media player",
-    repo: "Anon5T4R/Local-Player-RS",
+    repo: "Anon5T4R/Local-Player",
     former_ids: &[],
-    former_names: &[],
+    // A cópia instalada antes do rename registra "Local Player RS": o updater a reconhece pelo
+    // nome antigo até o MSI novo renomear a inscrição, sem desinstalar nada.
+    former_names: &["Local Player RS"],
     icon_png: None,
     accent: None,
     developer: "Anon5T4R",

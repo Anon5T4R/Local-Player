@@ -1,4 +1,4 @@
-# ROADMAP — Local Player RS
+# ROADMAP - Local Player
 
 Sucessor pure-Rust do Local-Player (mpv + IPC). Plano completo:
 `C:\Dev\docs\planos\plano-local-player-rs.md`.

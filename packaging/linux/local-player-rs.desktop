@@ -11,4 +11,4 @@ Terminal=false
 # O runner nativo não completa o handshake de startup-notification (igual ao local-image).
 StartupNotify=false
 StartupWMClass=local-player-rs
-MimeType=video/mp4;video/x-matroska;video/webm;video/x-msvideo;video/mp2t;audio/mpeg;audio/flac;audio/mp4;audio/ogg;audio/x-wav;audio/aiff;
+MimeType=video/mp4;video/x-m4v;video/quicktime;video/x-matroska;video/webm;audio/mpeg;audio/flac;audio/ogg;audio/x-opus+ogg;audio/x-wav;audio/mp4;audio/aac;

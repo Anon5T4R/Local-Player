@@ -90,6 +90,54 @@
              install, so it updates with the new MSI rather than the portable zip. The key's
              last segment is the app's display name (craft_update::App::name). -->
         <RegistryValue Root="HKLM" Key="Software\Anon5T4R\Local Player RS" Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" />
+
+        <!-- "Open with" and Settings > Default apps, through the Default Programs registration (ProgID,
+             OpenWithProgids, Capabilities, RegisteredApplications). Same list as the Linux MimeType: the formats the player opens (MEDIA_EXTS).
+             Never takes over an extension: the default value is left alone and the user chooses. -->
+        <ProgId Id="LocalPlayerRs.Media" Description="Media File" Icon="LocalPlayerRsExe" IconIndex="0" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\LocalPlayerRs.Media\shell\open\command" Value="&quot;[#LocalPlayerRsExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.mp4\OpenWithProgids" Name="LocalPlayerRs.Media" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.m4v\OpenWithProgids" Name="LocalPlayerRs.Media" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.mov\OpenWithProgids" Name="LocalPlayerRs.Media" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.mkv\OpenWithProgids" Name="LocalPlayerRs.Media" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.webm\OpenWithProgids" Name="LocalPlayerRs.Media" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.mp3\OpenWithProgids" Name="LocalPlayerRs.Media" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.flac\OpenWithProgids" Name="LocalPlayerRs.Media" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.opus\OpenWithProgids" Name="LocalPlayerRs.Media" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.ogg\OpenWithProgids" Name="LocalPlayerRs.Media" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.wav\OpenWithProgids" Name="LocalPlayerRs.Media" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.m4a\OpenWithProgids" Name="LocalPlayerRs.Media" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.aac\OpenWithProgids" Name="LocalPlayerRs.Media" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe" Name="FriendlyAppName" Value="Local Player" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe\shell\open\command" Value="&quot;[#LocalPlayerRsExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe\SupportedTypes" Name=".mp4" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe\SupportedTypes" Name=".m4v" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe\SupportedTypes" Name=".mov" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe\SupportedTypes" Name=".mkv" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe\SupportedTypes" Name=".webm" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe\SupportedTypes" Name=".mp3" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe\SupportedTypes" Name=".flac" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe\SupportedTypes" Name=".opus" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe\SupportedTypes" Name=".ogg" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe\SupportedTypes" Name=".wav" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe\SupportedTypes" Name=".m4a" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\local-player-rs.exe\SupportedTypes" Name=".aac" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities" Name="ApplicationName" Value="Local Player" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities" Name="ApplicationDescription" Value="Audio and video player" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities" Name="ApplicationIcon" Value="[#LocalPlayerRsExe],0" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities\FileAssociations" Name=".mp4" Value="LocalPlayerRs.Media" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities\FileAssociations" Name=".m4v" Value="LocalPlayerRs.Media" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities\FileAssociations" Name=".mov" Value="LocalPlayerRs.Media" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities\FileAssociations" Name=".mkv" Value="LocalPlayerRs.Media" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities\FileAssociations" Name=".webm" Value="LocalPlayerRs.Media" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities\FileAssociations" Name=".mp3" Value="LocalPlayerRs.Media" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities\FileAssociations" Name=".flac" Value="LocalPlayerRs.Media" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities\FileAssociations" Name=".opus" Value="LocalPlayerRs.Media" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities\FileAssociations" Name=".ogg" Value="LocalPlayerRs.Media" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities\FileAssociations" Name=".wav" Value="LocalPlayerRs.Media" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities\FileAssociations" Name=".m4a" Value="LocalPlayerRs.Media" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\LocalPlayerRs\Capabilities\FileAssociations" Name=".aac" Value="LocalPlayerRs.Media" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\RegisteredApplications" Name="LocalPlayerRs" Value="Software\LocalPlayerRs\Capabilities" Type="string" />
       </Component>
     </ComponentGroup>
   </Fragment>

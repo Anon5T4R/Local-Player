@@ -49,16 +49,17 @@
   <provides>
     <binary>local-player-rs</binary>
     <mediatype>video/mp4</mediatype>
+    <mediatype>video/x-m4v</mediatype>
+    <mediatype>video/quicktime</mediatype>
     <mediatype>video/x-matroska</mediatype>
     <mediatype>video/webm</mediatype>
-    <mediatype>video/x-msvideo</mediatype>
-    <mediatype>video/mp2t</mediatype>
     <mediatype>audio/mpeg</mediatype>
     <mediatype>audio/flac</mediatype>
-    <mediatype>audio/mp4</mediatype>
     <mediatype>audio/ogg</mediatype>
+    <mediatype>audio/x-opus+ogg</mediatype>
     <mediatype>audio/x-wav</mediatype>
-    <mediatype>audio/aiff</mediatype>
+    <mediatype>audio/mp4</mediatype>
+    <mediatype>audio/aac</mediatype>
   </provides>
   <releases>
     <release version="@VERSION@" date="@DATE@"/>

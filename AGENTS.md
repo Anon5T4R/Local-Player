@@ -24,7 +24,7 @@ processo externo de playback.
 - `src/` — app single-crate; `src/engine/` é o motor de áudio da fase 2 (thread
   própria: decode symphonia/filmcraft, ring SPSC e saída cpal); `src/pickers.rs`:
   seletor nativo async via rfd + pollster (portal XDG no Linux)
-- `icons/` — ícones do app (master PNG 1024)
+- `icons/` — ícones do app (só `icon.png` 128×128; o PNG mestre maior ainda está pendente)
 - `assets/app-icon/hicolor/` — árvore de ícones commitada (gerada por `packaging/icons.sh`)
 - `libs/` — vendored, `exclude` do workspace do app:
   - `egui/` + `winit/` — forks do padrão craft

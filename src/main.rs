@@ -49,7 +49,7 @@ static APP: craft_update::App = craft_update::App {
     // A cópia instalada antes do rename registra "Local Player RS": o updater a reconhece pelo
     // nome antigo até o MSI novo renomear a inscrição, sem desinstalar nada.
     former_names: &["Local Player RS"],
-    icon_png: None,
+    icon_png: Some(ICON_PNG),
     accent: None,
     developer: "Anon5T4R",
     publisher: "Local Player RS contributors",

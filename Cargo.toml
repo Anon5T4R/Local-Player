@@ -7,6 +7,11 @@ default-members = [".", "lab-ui"]
 # como members e os patches silenciam).
 exclude = ["libs"]
 
+[workspace.package]
+# Nada da suíte vai ao crates.io: dependência `path` sem versão numa crate publicável reprova o
+# `cargo-deny` (wildcards). Cada membro herda com `publish.workspace = true`.
+publish = false
+
 # Forks vendored (egui 6d518fc, winit a517b38) — receita no AGENTS.md do local-office.
 [patch.crates-io]
 # craft-libs vendored: o workspace do FilmCraft (libs/filmcraft) aponta pra
@@ -38,7 +43,7 @@ name = "local-player-rs"
 version = "0.6.5"
 edition = "2021"
 license = "GPL-3.0-or-later"
-publish = false
+publish.workspace = true
 repository = "https://github.com/Anon5T4R/Local-Player"
 description = "Player de mídia 100% local e offline em Rust puro — candidato a sucessor do Local-Player"
 

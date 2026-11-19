@@ -1,6 +1,5 @@
 # cargo-deny policy — mesma política do local-pdf: só licença permissiva é linkada.
-# Copyleft de TERCEIROS nunca vira dependência; o GPL-3.0-or-later abaixo é a
-# licença dos NOSSOS crates (local-keys, lab-ui), não uma autorização para deps GPL.
+# Copyleft nunca entra no `allow`; o que a árvore traz com copyleft de arquivo é exceção por crate abaixo.
 
 [graph]
 all-features = true
@@ -19,10 +18,6 @@ allow = [
     "Unicode-3.0",
     "BSL-1.0",
     "CC0-1.0",
-    # Nossos crates (local-keys, lab-ui).
-    "GPL-3.0-or-later",
-    # option-ext (via keyring/secret-service): file-level copyleft, efetivo como permissiva.
-    "MPL-2.0",
     # secstr (via keepass): domínio público.
     "Unlicense",
     # libfuzzer-sys (dev-graph de rav1e/image): licença de NCSA, estilo BSD.
@@ -96,3 +91,58 @@ ignore = [
 [[licenses.exceptions]]
 crate = "epaint_default_fonts"
 allow = ["OFL-1.1", "Ubuntu-font-1.0"]
+
+# symphonia (decodificação de áudio do player) é MPL-2.0: copyleft só no nível de arquivo, usado sem
+# modificação como dependência do crates.io (o código modificado de arquivos MPL é que teria de ser
+# publicado). Uma exceção por crate da família, nunca MPL-2.0 no allow geral.
+[[licenses.exceptions]]
+crate = "symphonia"
+allow = ["MPL-2.0"]
+
+[[licenses.exceptions]]
+crate = "symphonia-bundle-flac"
+allow = ["MPL-2.0"]
+
+[[licenses.exceptions]]
+crate = "symphonia-bundle-mp3"
+allow = ["MPL-2.0"]
+
+[[licenses.exceptions]]
+crate = "symphonia-codec-aac"
+allow = ["MPL-2.0"]
+
+[[licenses.exceptions]]
+crate = "symphonia-codec-alac"
+allow = ["MPL-2.0"]
+
+[[licenses.exceptions]]
+crate = "symphonia-codec-pcm"
+allow = ["MPL-2.0"]
+
+[[licenses.exceptions]]
+crate = "symphonia-codec-vorbis"
+allow = ["MPL-2.0"]
+
+[[licenses.exceptions]]
+crate = "symphonia-core"
+allow = ["MPL-2.0"]
+
+[[licenses.exceptions]]
+crate = "symphonia-format-isomp4"
+allow = ["MPL-2.0"]
+
+[[licenses.exceptions]]
+crate = "symphonia-format-ogg"
+allow = ["MPL-2.0"]
+
+[[licenses.exceptions]]
+crate = "symphonia-format-riff"
+allow = ["MPL-2.0"]
+
+[[licenses.exceptions]]
+crate = "symphonia-metadata"
+allow = ["MPL-2.0"]
+
+[[licenses.exceptions]]
+crate = "symphonia-utils-xiph"
+allow = ["MPL-2.0"]

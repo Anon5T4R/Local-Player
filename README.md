@@ -171,4 +171,4 @@ UI (egui/lab-ui, portada do local-player)
       └─ áudio: cpal consumindo ring buffer (relógio mestre = áudio)
 ```
 
-Licença: GPL-3.0-or-later.
+Licença: MIT OR Apache-2.0 (`LICENSE-MIT` e `LICENSE-APACHE`).

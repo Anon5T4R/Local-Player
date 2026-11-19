@@ -15,7 +15,7 @@ priority: optional
 maintainer: ${LOCALPLAYER_MAINTAINER}
 vendor: Local Player RS contributors
 homepage: https://github.com/Anon5T4R/Local-Player
-license: GPL-3.0-or-later
+license: MIT OR Apache-2.0
 description: |-
   Media player that works 100% locally and offline.
   Pure-Rust demux and decode (FilmCraft codecs + symphonia), in-process

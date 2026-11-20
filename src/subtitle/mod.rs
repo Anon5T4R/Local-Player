@@ -29,9 +29,9 @@ mod tx3g;
 
 use std::path::{Path, PathBuf};
 
-pub use embedded::{choose_source, load as load_embedded, preferred_language, Embedded, Source};
+pub use embedded::{Embedded, Source, choose_source, load as load_embedded, preferred_language};
 pub use filmcraft_codecs::subtitles::SubtitleSample as EmbeddedSample;
-pub use layout::{place, Margins};
+pub use layout::{Margins, place};
 
 /// Alinhamento horizontal da cue dentro da área do vídeo.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

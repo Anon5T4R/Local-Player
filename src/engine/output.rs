@@ -11,15 +11,15 @@
 //! f32/i16/u16. A taxa do device é fixa por sessão (trocar de device exige
 //! reabrir o app).
 
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
+use std::sync::mpsc::Sender;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, SampleFormat, SizedSample, StreamConfig};
 
+use super::Event;
 use super::error::EngineError;
 use super::ring::SampleRing;
-use super::Event;
 
 /// Quantos frames pré-alocamos para o scratch do callback (buffer típico é
 /// 128–2048; 8192 cobre sobra). Crescer depois aloca — só na primeira vez que

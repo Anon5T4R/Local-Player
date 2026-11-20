@@ -60,11 +60,7 @@ pub(super) trait AudioSource {
 pub(super) fn open(path: &str) -> Result<Box<dyn AudioSource>, String> {
     let ext = Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
     let ogg_opus = matches!(ext.as_str(), "ogg" | "oga") && sniff_opus(path)?;
-    if ext == "opus" || ogg_opus {
-        Ok(Box::new(OggOpusSource::open(path)?))
-    } else {
-        Ok(Box::new(SymphoniaSource::open(path, &ext)?))
-    }
+    if ext == "opus" || ogg_opus { Ok(Box::new(OggOpusSource::open(path)?)) } else { Ok(Box::new(SymphoniaSource::open(path, &ext)?)) }
 }
 
 /// `true` se o começo do arquivo Ogg declara uma stream Opus.
@@ -133,15 +129,7 @@ impl SymphoniaSource {
         // zero frames — sem isso a barra de seek vira ~4·10^14 s e qualquer
         // arrasto pra frente vira um seek para o infinito. Os outros formatos
         // mantêm a duração do container (não têm o defeito do Xing).
-        let duration = if mpeg {
-            if declared_ok {
-                declared
-            } else {
-                scan_mpeg_audio_duration(path)
-            }
-        } else {
-            declared
-        };
+        let duration = if mpeg { if declared_ok { declared } else { scan_mpeg_audio_duration(path) } } else { declared };
         let decoder = symphonia::default::get_codecs().make(&params, &DecoderOptions::default()).map_err(|e| e.to_string())?;
         Ok(Self { format, decoder, track_id, rate, duration, last_pos: 0.0 })
     }
@@ -297,11 +285,7 @@ impl AudioSource for OggOpusSource {
     }
 
     fn duration(&self) -> Option<f64> {
-        if self.rate == 0 {
-            None
-        } else {
-            Some(self.total as f64 / f64::from(self.rate))
-        }
+        if self.rate == 0 { None } else { Some(self.total as f64 / f64::from(self.rate)) }
     }
 
     fn sample_rate(&self) -> u32 {

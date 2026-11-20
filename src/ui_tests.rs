@@ -6,11 +6,11 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use craft_icons::ThemeMode;
 use egui::accesskit::Role;
-use egui_kittest::kittest::Queryable;
 use egui_kittest::Harness;
+use egui_kittest::kittest::Queryable;
 
 use crate::prefs::Prefs;
-use crate::{i18n, metrics, theme, PlayerApp};
+use crate::{PlayerApp, i18n, metrics, theme};
 
 /// A largura de revisão "estreita": a da janela inicial do app (480), abaixo da qual a barra de controles de
 /// baixo já não foi desenhada para caber; a barra de cima é conferida também em 340.
@@ -33,7 +33,8 @@ fn isolate() -> &'static Path {
         let dir = std::env::temp_dir().join(format!("local-player-ui-{}-{nanos}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         for var in ["APPDATA", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "LOCALAPPDATA"] {
-            std::env::set_var(var, &dir);
+            // FIXME: Audit that the environment access only happens in single-threaded code.
+            unsafe { std::env::set_var(var, &dir) };
         }
         dir
     })

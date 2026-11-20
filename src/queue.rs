@@ -5,20 +5,12 @@
 
 /// Próxima faixa depois de `current`, se existir.
 pub fn next_index(len: usize, current: usize) -> Option<usize> {
-    if current + 1 < len {
-        Some(current + 1)
-    } else {
-        None
-    }
+    if current + 1 < len { Some(current + 1) } else { None }
 }
 
 /// Faixa anterior, se existir (no índice 0 a UI reinicia a atual).
 pub fn prev_index(len: usize, current: usize) -> Option<usize> {
-    if current > 0 && current < len {
-        Some(current - 1)
-    } else {
-        None
-    }
+    if current > 0 && current < len { Some(current - 1) } else { None }
 }
 
 #[cfg(test)]

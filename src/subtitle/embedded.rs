@@ -18,7 +18,7 @@ use std::sync::Arc;
 use filmcraft_codecs::subtitles::{SubtitleCodec, SubtitleSample, SubtitleTrack};
 
 use super::srt;
-use super::{tx3g, Subtitles};
+use super::{Subtitles, tx3g};
 
 /// Uma faixa embutida já interpretada, pronta para a UI.
 pub struct Embedded {
@@ -136,11 +136,11 @@ fn ass_cues(header: &[u8], samples: &[SubtitleSample]) -> Result<Vec<super::Cue>
     // `[Events]` sem `Format:` (CodecPrivate só com estilos): o parser tem o
     // formato padrão, mas o próprio script fica legível com a linha explícita.
     let events = script.rfind("[Events]").map(|at| &script[at..]).unwrap_or("");
-    if !events.contains("Format:") {
-        if let Some(at) = script.rfind("[Events]") {
-            let after = at + "[Events]".len();
-            script.insert_str(after, "\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text");
-        }
+    if !events.contains("Format:")
+        && let Some(at) = script.rfind("[Events]")
+    {
+        let after = at + "[Events]".len();
+        script.insert_str(after, "\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text");
     }
     for sample in samples {
         let text = body(sample).trim().replace('\n', "\\N");

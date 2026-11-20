@@ -2,7 +2,7 @@
 //! (idioma, tema e Sobre) e a paleta de comandos. Os comandos rodam o mesmo código dos botões e das teclas.
 
 use crate::i18n::{self, tr, tr_fmt};
-use crate::{engine, theme, PlayerApp, MEDIA_EXTS};
+use crate::{MEDIA_EXTS, PlayerApp, engine, theme};
 use craft_icons::{Icon, ThemeMode};
 use craft_palette::Command;
 use craft_update::updater::Status;

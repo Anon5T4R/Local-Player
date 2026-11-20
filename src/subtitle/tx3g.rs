@@ -27,11 +27,7 @@ pub fn text_of(data: &[u8]) -> String {
     // cabem no resto e o primeiro é texto imprimível — a amostra inteira é o
     // texto. Prefixo truncado (primeiro byte de controle): usa o que existe.
     let body = if declared > data.len().saturating_sub(2) {
-        if data[0] >= 0x20 && data[0] != 0x7F {
-            data
-        } else {
-            &data[2..]
-        }
+        if data[0] >= 0x20 && data[0] != 0x7F { data } else { &data[2..] }
     } else {
         &data[2..2 + declared]
     };

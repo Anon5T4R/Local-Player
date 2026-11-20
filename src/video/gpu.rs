@@ -26,7 +26,7 @@ use eframe::egui_wgpu::{CallbackResources, CallbackTrait};
 use super::color::yuv_to_rgb;
 use super::geometry::{self, Rect};
 use super::tone::{self, Operator, ToneMapMode, ToneMapParams};
-use super::{chroma_dims, Frame, Planes};
+use super::{Frame, Planes, chroma_dims};
 
 /// Uma textura plana do frame atual.
 struct Textures {
@@ -87,10 +87,12 @@ impl Inner {
     /// (Re)cria texturas, views e bind group quando tamanho, croma ou formato
     /// de amostra mudam.
     fn ensure_textures(&mut self, width: u32, height: u32, chroma: filmcraft_frame::Chroma, format: wgpu::TextureFormat) {
-        if let Some(t) = &self.textures {
-            if t.size == (width, height) && t.chroma == chroma && t.format == format {
-                return;
-            }
+        if let Some(t) = &self.textures
+            && t.size == (width, height)
+            && t.chroma == chroma
+            && t.format == format
+        {
+            return;
         }
         let (cw, ch) = chroma_dims(width, height, chroma);
         let plane = |w: u32, h: u32, label: &str| -> wgpu::Texture {

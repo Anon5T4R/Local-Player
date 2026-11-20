@@ -89,11 +89,11 @@ impl SessionLog {
     /// evento — uma execução sem playback não deixa arquivo vazio).
     pub fn new() -> Self {
         let dir = log_dir();
-        if let Some(d) = &dir {
-            if let Err(e) = std::fs::create_dir_all(d) {
-                eprintln!("log: nao consegui criar {}: {e}", d.display());
-                return Self { state: Mutex::new(State::disabled()) };
-            }
+        if let Some(d) = &dir
+            && let Err(e) = std::fs::create_dir_all(d)
+        {
+            eprintln!("log: nao consegui criar {}: {e}", d.display());
+            return Self { state: Mutex::new(State::disabled()) };
         }
         Self { state: Mutex::new(State::new(dir)) }
     }

@@ -223,8 +223,7 @@ pub struct Snapshot {
 
 impl Snapshot {
     /// Cabeçalho do CSV (uma linha por segundo quando `LOCALPLAYER_STATS` está setado).
-    pub const CSV_HEADER: &'static str =
-        "t_s,decode_fps,decode_avg_ms,decode_p95_ms,decode_max_ms,display_fps,presented,dropped,dropped_late,late_ms,ring,upload_ms,upload_avg_ms,repaint_ms,rss_mb,rss_peak_mb,cache_mb";
+    pub const CSV_HEADER: &'static str = "t_s,decode_fps,decode_avg_ms,decode_p95_ms,decode_max_ms,display_fps,presented,dropped,dropped_late,late_ms,ring,upload_ms,upload_avg_ms,repaint_ms,rss_mb,rss_peak_mb,cache_mb";
 
     /// Linha CSV do snapshot (sem quebra de linha).
     pub fn csv_line(&self) -> String {
@@ -474,14 +473,14 @@ impl Metrics {
 
         // Uma linha por segundo: o artefato que volta para diagnóstico.
         let mut log = self.lock_log();
-        if let Some(l) = log.as_mut() {
-            if now.saturating_duration_since(l.last) >= LOG_PERIOD {
-                let snap = self.snapshot();
-                if writeln!(l.file, "{}", snap.csv_line()).is_ok() {
-                    let _ = l.file.flush();
-                }
-                l.last = now;
+        if let Some(l) = log.as_mut()
+            && now.saturating_duration_since(l.last) >= LOG_PERIOD
+        {
+            let snap = self.snapshot();
+            if writeln!(l.file, "{}", snap.csv_line()).is_ok() {
+                let _ = l.file.flush();
             }
+            l.last = now;
         }
     }
 

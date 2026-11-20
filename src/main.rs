@@ -32,8 +32,8 @@ mod workarea;
 mod ui_tests;
 
 use std::collections::VecDeque;
-use std::sync::mpsc::{Receiver, TryRecvError};
 use std::sync::Arc;
+use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
 use eframe::egui;
@@ -180,9 +180,9 @@ fn load_icon() -> Option<egui::IconData> {
 fn open_url(url: &str) {
     #[cfg(windows)]
     {
-        use windows::core::{HSTRING, PCWSTR};
         use windows::Win32::UI::Shell::ShellExecuteW;
         use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        use windows::core::{HSTRING, PCWSTR};
         let verb = HSTRING::from("open");
         let file = HSTRING::from(url);
         // > 32 = lançou (mesma convenção do antigo autoupdate com "runas").
@@ -578,10 +578,10 @@ impl PlayerApp {
                 self.error_streak = 0;
                 // Sessão de reprodução: linha com data/arquivo/codec/res/fps no
                 // log automático (os metadados chegam pelo `Metrics` do motor).
-                if let Some(path) = self.idx.and_then(|i| self.playlist.files.get(i)).cloned() {
-                    if let Some(info) = self.metrics.snapshot().track {
-                        self.session.track(&path, &info);
-                    }
+                if let Some(path) = self.idx.and_then(|i| self.playlist.files.get(i)).cloned()
+                    && let Some(info) = self.metrics.snapshot().track
+                {
+                    self.session.track(&path, &info);
                 }
             }
             engine::Event::PositionHint { position, duration } => {
@@ -1617,12 +1617,13 @@ impl PlayerApp {
         // inteira e a área central medida acima. Só com os painéis na tela —
         // escondidos por inatividade ou em fullscreen a medida não vale, e o
         // resize 1:1 usa a última medida válida.
-        if !hide_chrome && !self.fullscreen {
-            if let Some(inner) = ctx.input(|i| i.viewport().inner_rect) {
-                let chrome = inner.size() - central.size();
-                if chrome.x >= 0.0 && chrome.y > 0.0 {
-                    self.chrome = chrome;
-                }
+        if !hide_chrome
+            && !self.fullscreen
+            && let Some(inner) = ctx.input(|i| i.viewport().inner_rect)
+        {
+            let chrome = inner.size() - central.size();
+            if chrome.x >= 0.0 && chrome.y > 0.0 {
+                self.chrome = chrome;
             }
         }
         // Ajuste 1:1 agendado pela abertura da faixa, agora com o chrome medido.
@@ -1719,11 +1720,7 @@ const PLAYLIST_MIN_H: f32 = 56.0;
 fn clamp_playlist_height(height: f32, max_h: f32) -> f32 {
     let lo = PLAYLIST_MIN_H.min(max_h);
     let hi = max_h.max(lo);
-    if height.is_finite() {
-        height.clamp(lo, hi)
-    } else {
-        lo
-    }
+    if height.is_finite() { height.clamp(lo, hi) } else { lo }
 }
 
 /// Linha da playlist: largura toda, altura fixa e o par hover/seleção do tema
@@ -1785,11 +1782,7 @@ fn fmt_time(secs: f64) -> String {
     }
     let total = secs.round() as u64;
     let (h, m, s) = (total / 3600, (total % 3600) / 60, total % 60);
-    if h > 0 {
-        format!("{h}:{m:02}:{s:02}")
-    } else {
-        format!("{m}:{s:02}")
-    }
+    if h > 0 { format!("{h}:{m:02}:{s:02}") } else { format!("{m}:{s:02}") }
 }
 
 /// Cor RGB do parse de legenda para o `Color32` do egui.
@@ -1814,11 +1807,7 @@ fn window_video_px(width: u32, height: u32, par: (u32, u32), rotation: u8) -> (u
     } else {
         width
     };
-    if rotation % 2 == 1 {
-        (height, disp_w)
-    } else {
-        (disp_w, height)
-    }
+    if rotation % 2 == 1 { (height, disp_w) } else { (disp_w, height) }
 }
 
 /// Texto do overlay da tecla D: uma linha por grupo, colunas de largura fixa.

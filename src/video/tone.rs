@@ -239,11 +239,7 @@ pub fn hlg_inverse_oetf(e: f32) -> f32 {
     const B: f32 = 0.284_668_92;
     const C: f32 = 0.559_910_7;
     let e = e.max(0.0);
-    if e <= 0.5 {
-        e * e / 3.0
-    } else {
-        (((e - C) / A).exp() + B) / 12.0
-    }
+    if e <= 0.5 { e * e / 3.0 } else { (((e - C) / A).exp() + B) / 12.0 }
 }
 
 /// OOTF do HLG (gamma de sistema 1,2) aplicado à luz de cena.
@@ -330,11 +326,7 @@ pub fn tonemap_linear(rgb: [f32; 3], mode: ToneMapMode, peak_nits: f32, operator
 #[cfg(test)]
 pub fn linear_to_srgb(v: f32) -> f32 {
     let x = v.clamp(0.0, 1.0);
-    if x <= 0.003_130_8 {
-        x * 12.92
-    } else {
-        1.055 * x.powf(1.0 / 2.4) - 0.055
-    }
+    if x <= 0.003_130_8 { x * 12.92 } else { 1.055 * x.powf(1.0 / 2.4) - 0.055 }
 }
 
 #[cfg(test)]

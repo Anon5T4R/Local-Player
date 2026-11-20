@@ -193,11 +193,7 @@ fn fmt_duration(secs: f64) -> String {
     }
     let total_ms = (secs * 1000.0).round() as u64;
     let (h, m, s, ms) = (total_ms / 3_600_000, (total_ms / 60_000) % 60, (total_ms / 1000) % 60, total_ms % 1000);
-    if h > 0 {
-        format!("{h}:{m:02}:{s:02}.{ms:03}")
-    } else {
-        format!("{m}:{s:02}.{ms:03}")
-    }
+    if h > 0 { format!("{h}:{m:02}:{s:02}.{ms:03}") } else { format!("{m}:{s:02}.{ms:03}") }
 }
 
 /// bit/s → "Mb/s" legível.
@@ -270,7 +266,7 @@ fn print_bench(out: &mut dyn Write, r: &engine::BenchReport) -> std::io::Result<
 /// (Windows GUI), com UTF-8.
 #[cfg(windows)]
 fn output() -> Box<dyn Write> {
-    use windows::Win32::System::Console::{AttachConsole, GetStdHandle, SetConsoleOutputCP, ATTACH_PARENT_PROCESS, STD_OUTPUT_HANDLE};
+    use windows::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole, GetStdHandle, STD_OUTPUT_HANDLE, SetConsoleOutputCP};
     // SAFETY: chamadas de console do próprio processo; handles inválidos viram
     // `Err`/artefato e o fallback é o stdout do Rust.
     let inherited = unsafe { GetStdHandle(STD_OUTPUT_HANDLE) }.is_ok();
@@ -280,10 +276,8 @@ fn output() -> Box<dyn Write> {
             let _ = SetConsoleOutputCP(65001);
         }
     }
-    if !inherited {
-        if let Ok(file) = std::fs::OpenOptions::new().write(true).open("CONOUT$") {
-            return Box::new(file);
-        }
+    if !inherited && let Ok(file) = std::fs::OpenOptions::new().write(true).open("CONOUT$") {
+        return Box::new(file);
     }
     Box::new(std::io::stdout())
 }

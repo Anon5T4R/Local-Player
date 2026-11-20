@@ -16,9 +16,9 @@
 //! decodifica AAC/MP3/Opus/AC-3/E-AC-3/FLAC/Vorbis/PCM com o próprio container,
 //! já reamostrado para a taxa do device (o ring da fase 2 não muda).
 
-use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::mpsc::{sync_channel, Receiver, RecvTimeoutError, Sender, SyncSender, TryRecvError};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, SyncSender, TryRecvError, sync_channel};
 use std::time::{Duration, Instant};
 use std::{fmt, path::Path};
 
@@ -29,9 +29,9 @@ use filmcraft_time::Tick;
 use crate::metrics::Metrics;
 use crate::video::{Frame, Planes};
 
+use super::Clock;
 use super::decoder::{AudioSource, Chunk, Seeked};
 use super::error::EngineError;
-use super::Clock;
 
 /// Maior lado aceito no decode/render (igual ao limite do render).
 pub const MAX_DIMENSION: u32 = crate::video::MAX_DIMENSION;

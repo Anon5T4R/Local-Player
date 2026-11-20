@@ -363,10 +363,10 @@ fn apply_overrides(block: &str, style: &mut Style, anchor: &mut Anchor, play_res
         let (name, arg) = split_command(command);
         match name {
             "an" => {
-                if let Ok(n) = arg.trim().parse::<u8>() {
-                    if (1..=9).contains(&n) {
-                        *anchor = anchor_of(n);
-                    }
+                if let Ok(n) = arg.trim().parse::<u8>()
+                    && (1..=9).contains(&n)
+                {
+                    *anchor = anchor_of(n);
                 }
             }
             "i" => state.italic = flag(arg),
@@ -424,11 +424,7 @@ fn parse_color(raw: &str) -> Option<[u8; 3]> {
 /// Nome da fonte → família disponível (só proporcional/mono no app).
 fn font_family(name: &str) -> Family {
     let name = name.to_ascii_lowercase();
-    if ["mono", "courier", "consolas", "fixed", "terminal"].iter().any(|m| name.contains(m)) {
-        Family::Monospace
-    } else {
-        Family::Proportional
-    }
+    if ["mono", "courier", "consolas", "fixed", "terminal"].iter().any(|m| name.contains(m)) { Family::Monospace } else { Family::Proportional }
 }
 
 fn parse_positive(raw: &str) -> Option<f32> {

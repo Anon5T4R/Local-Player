@@ -26,11 +26,7 @@ pub(super) fn secs_to_frames(secs: f64, rate: u32) -> u64 {
 
 /// Frames → segundos (taxa 0 = 0,0).
 pub(super) fn frames_to_secs(frames: u64, rate: u32) -> f64 {
-    if rate == 0 {
-        0.0
-    } else {
-        frames as f64 / f64::from(rate)
-    }
+    if rate == 0 { 0.0 } else { frames as f64 / f64::from(rate) }
 }
 
 pub(super) struct SampleRing {

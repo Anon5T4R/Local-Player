@@ -37,21 +37,21 @@ mod ring;
 mod transport;
 mod video;
 
-pub use diag::{bench, probe, BenchReport, ProbeReport};
+pub use diag::{BenchReport, ProbeReport, bench, probe};
 pub use error::{EngineError, ErrorKind};
 pub use transport::Transport;
 pub use video::{VideoInfo, VideoMsg, VideoPipeline};
 
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender, TryRecvError};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError, channel};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use crate::metrics::{Metrics, TrackInfo};
 use resample::LinearResampler;
-use ring::{secs_to_frames, SampleRing};
+use ring::{SampleRing, secs_to_frames};
 
 /// Teto do cache de frames decodificados do fork do FilmCraft (por faixa).
 ///
@@ -484,23 +484,22 @@ fn run(rx: Receiver<Cmd>, tx: Sender<Event>, clock: Arc<Clock>, metrics: Arc<Met
 
         let mut fail: Option<EngineError> = None;
         let mut ended = false;
-        if let Some(s) = st.session.as_ref() {
-            if let Some(t) = st.track.as_mut() {
-                if t.audio.is_some() {
-                    if st.pending.done() {
-                        match decode_step(t) {
-                            Ok(Some(chunk)) => fill_pending(t, &mut st.pending, chunk, s.rate),
-                            Ok(None) => s.ring.set_eof(true),
-                            Err(e) => fail = Some(e),
-                        }
-                    }
-                    if fail.is_none() && !st.pending.done() {
-                        st.pending.pos += s.ring.push(st.pending.rest());
-                    }
-                    if s.ring.take_ended() {
-                        ended = true;
-                    }
+        if let Some(s) = st.session.as_ref()
+            && let Some(t) = st.track.as_mut()
+            && t.audio.is_some()
+        {
+            if st.pending.done() {
+                match decode_step(t) {
+                    Ok(Some(chunk)) => fill_pending(t, &mut st.pending, chunk, s.rate),
+                    Ok(None) => s.ring.set_eof(true),
+                    Err(e) => fail = Some(e),
                 }
+            }
+            if fail.is_none() && !st.pending.done() {
+                st.pending.pos += s.ring.push(st.pending.rest());
+            }
+            if s.ring.take_ended() {
+                ended = true;
             }
         }
 

@@ -2,7 +2,7 @@
 //! Configurações e a paleta. Nenhum teste toca o config.json, a playlist nem o resume reais, e nenhum fala com a rede.
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use egui::accesskit::Role;
 use egui_kittest::kittest::Queryable;
@@ -16,6 +16,14 @@ use crate::{metrics, PlayerApp};
 /// A largura de revisão "estreita": a da janela inicial do app (480), abaixo da qual a barra de controles de
 /// baixo já não foi desenhada para caber; a barra de cima é conferida também em 340.
 const NARROW: f32 = 480.0;
+
+/// Um app por vez: cada `PlayerApp` sobe a thread do motor de áudio (WASAPI/COM no Windows), e vários ao mesmo
+/// tempo num runner sem placa de som derrubam o processo de teste (STATUS_ACCESS_VIOLATION no CI). Os outros
+/// testes do app seguem em paralelo.
+fn serial() -> MutexGuard<'static, ()> {
+    static LOCK: Mutex<()> = Mutex::new(());
+    LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 
 /// Aponta TODA gravação do app (config, playlist, resume, prefs, log de sessão) para uma pasta temporária do
 /// processo de teste: o `Drop` do app grava resume e volume, e isso nunca pode cair nos arquivos do João.
@@ -143,6 +151,7 @@ fn shot(harness: &mut Harness<'_, PlayerApp>, name: &str) {
 /// O botão de tema da barra gira Automático -> Claro -> Escuro -> Automático e grava a escolha.
 #[test]
 fn the_theme_button_cycles_the_three_modes() {
+    let _serial = serial();
     let mut harness = harness(app("theme", Config::default()));
     assert_eq!(harness.state().cfg.theme, Appearance::System);
     click_bar(&mut harness, THEME);
@@ -159,6 +168,7 @@ fn the_theme_button_cycles_the_three_modes() {
 /// Uma preferência de tema gravada por versões antigas (id que a casca não conhece) abre no Automático.
 #[test]
 fn an_old_theme_id_falls_back_to_automatic() {
+    let _serial = serial();
     let dir = scratch("old-theme");
     std::fs::create_dir_all(&dir).expect("temp dir");
     let file = dir.join("config.json");
@@ -171,6 +181,7 @@ fn an_old_theme_id_falls_back_to_automatic() {
 /// A engrenagem abre as Configurações; lá o idioma troca e o tema vira pelas três opções.
 #[test]
 fn the_gear_opens_settings_with_language_and_theme() {
+    let _serial = serial();
     let mut harness = harness(app("gear", Config { theme: Appearance::Dark, lang: Lang::En }));
     click_bar(&mut harness, GEAR);
     assert!(harness.state().settings_open);
@@ -198,6 +209,7 @@ fn the_gear_opens_settings_with_language_and_theme() {
 /// A lupa e o Ctrl+K abrem a paleta; Enter roda o comando escolhido.
 #[test]
 fn the_search_icon_and_ctrl_k_open_the_palette_and_run_a_command() {
+    let _serial = serial();
     let mut harness = harness(app("palette", Config { theme: Appearance::Light, lang: Lang::En }));
     assert!(!harness.state().palette.is_open());
     click_bar(&mut harness, SEARCH);
@@ -213,6 +225,7 @@ fn the_search_icon_and_ctrl_k_open_the_palette_and_run_a_command() {
 /// Comandos do player pela paleta: volume e mudo mexem no estado como o slider e a tecla M.
 #[test]
 fn palette_commands_change_volume_and_mute() {
+    let _serial = serial();
     let mut harness = harness(app_with_tracks("volume", Config { theme: Appearance::Dark, lang: Lang::En }));
     harness.state_mut().volume = 50.0;
     run_palette(&mut harness, "volume down");
@@ -230,6 +243,7 @@ fn palette_commands_change_volume_and_mute() {
 /// Sem faixa e sem vídeo, só os comandos que não dependem deles ficam ligados; com faixa, os de faixa ligam.
 #[test]
 fn track_and_video_commands_follow_the_player_state() {
+    let _serial = serial();
     let empty = app("empty", Config::default());
     let off = |app: &PlayerApp, id: &str| app.commands().into_iter().find(|c| c.id == id).map(|c| !c.enabled).unwrap_or_else(|| panic!("{id}"));
     for id in ["playback.toggle", "playback.stop", "playback.previous", "playback.next", "playback.back", "playback.forward"] {
@@ -254,6 +268,7 @@ fn track_and_video_commands_follow_the_player_state() {
 /// "Exit" na paleta pede o encerramento (o quadro responde com Close).
 #[test]
 fn exit_in_the_palette_asks_to_quit() {
+    let _serial = serial();
     let mut harness = harness(app("exit", Config { theme: Appearance::Dark, lang: Lang::En }));
     run_palette(&mut harness, "exit");
     assert!(harness.state().quit);
@@ -262,6 +277,7 @@ fn exit_in_the_palette_asks_to_quit() {
 /// A paleta fechada não rouba as teclas do player: M muda o mudo e a seta seeka, sem abrir nada.
 #[test]
 fn player_keys_still_work_with_the_palette_closed() {
+    let _serial = serial();
     let mut harness = harness(app_with_tracks("keys", Config { theme: Appearance::Light, lang: Lang::En }));
     harness.run_steps(2);
     press(&mut harness, egui::Key::M, egui::Modifiers::NONE);
@@ -274,6 +290,7 @@ fn player_keys_still_work_with_the_palette_closed() {
 /// Com as Configurações ou a paleta abertas, as teclas do player ficam quietas (Esc, setas e M são delas).
 #[test]
 fn player_keys_stay_quiet_while_an_overlay_is_open() {
+    let _serial = serial();
     let mut harness = harness(app_with_tracks("quiet", Config { theme: Appearance::Light, lang: Lang::En }));
     harness.run_steps(2);
     click_bar(&mut harness, SEARCH);
@@ -295,6 +312,7 @@ fn player_keys_stay_quiet_while_an_overlay_is_open() {
 /// Esc com as Configurações abertas em tela cheia fecha só a janela: a tela cheia continua.
 #[test]
 fn escape_closes_settings_without_leaving_fullscreen() {
+    let _serial = serial();
     let mut harness = harness(app_with_tracks("fullscreen", Config { theme: Appearance::Dark, lang: Lang::En }));
     harness.state_mut().fullscreen = true;
     run_palette(&mut harness, "settings");
@@ -307,6 +325,7 @@ fn escape_closes_settings_without_leaving_fullscreen() {
 /// Os botões da barra continuam inteiros e fora do título na largura estreita e nas médias.
 #[test]
 fn the_top_bar_does_not_overlap_at_any_width() {
+    let _serial = serial();
     for width in [340.0_f32, 400.0, 480.0, 620.0, 800.0] {
         let mut harness = harness_sized(app_with_tracks("bar", Config { theme: Appearance::Light, lang: Lang::Pt }), width);
         harness.run_steps(2);
@@ -324,6 +343,7 @@ fn the_top_bar_does_not_overlap_at_any_width() {
 /// As larguras das capturas de revisão (estreita e média), com faixas na playlist, nos dois temas.
 #[test]
 fn review_shots() {
+    let _serial = serial();
     for (width, label) in [(NARROW, "480"), (1100.0, "1100")] {
         for (appearance, name) in [(Appearance::Light, "light"), (Appearance::Dark, "dark")] {
             let mut harness = harness_sized(app_with_tracks("shots", Config { theme: appearance, lang: Lang::En }), width);

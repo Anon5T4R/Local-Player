@@ -21,8 +21,12 @@ mod pickers;
 mod queue;
 mod resume;
 mod session_log;
+mod shell;
 mod subtitle;
 mod video;
+
+#[cfg(test)]
+mod ui_tests;
 
 use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, TryRecvError};
@@ -147,6 +151,8 @@ fn main() -> eframe::Result<()> {
         APP_ID,
         options,
         Box::new(move |cc| {
+            // O carregador de SVG dos ícones da suíte (craft-icons).
+            egui_extras::install_image_loaders(&cc.egui_ctx);
             theme::apply(&cc.egui_ctx, cfg.theme);
             // Linux: a escolha clara/escura do desktop, que o winit não informa.
             craft_desktop_theme::follow(&cc.egui_ctx);
@@ -298,6 +304,17 @@ struct PlayerApp {
     fit_pending: u8,
     /// Último tamanho interno pedido ao viewport (para não repetir comando).
     fit_target: Option<egui::Vec2>,
+    /// Janela de Configurações (idioma, tema, Sobre) — a engrenagem e a paleta abrem (`shell.rs`).
+    settings_open: bool,
+    /// Paleta de comandos da suíte (lupa e Ctrl+K).
+    palette: craft_palette::Palette,
+    /// Onde o config.json é gravado (os testes apontam para uma pasta temporária).
+    config_file: std::path::PathBuf,
+    /// "Sair" da paleta: o quadro responde com `ViewportCommand::Close`.
+    quit: bool,
+    /// A falha do último check de atualização já entrou no log da sessão (com as Configurações abertas o
+    /// resultado fica lá, e o log não pode repetir a linha a cada quadro).
+    update_failure_logged: bool,
 }
 
 impl PlayerApp {
@@ -374,6 +391,11 @@ impl PlayerApp {
             fitted: None,
             fit_pending: 0,
             fit_target: None,
+            settings_open: false,
+            palette: craft_palette::Palette::default(),
+            config_file: config::config_dir(APP_ID).join("config.json"),
+            quit: false,
+            update_failure_logged: false,
         };
         // // local-player-rs: provider TLS do update (100% Rust, caminho único).
         // Fica pendente no log e sai com a primeira linha da sessão.
@@ -729,7 +751,8 @@ impl PlayerApp {
     /// Atalhos de teclado (só fora de campo de texto). O overlay volta
     /// sozinho porque qualquer tecla conta como atividade.
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
-        if ctx.egui_wants_keyboard_input() {
+        // Com as Configurações ou a paleta abertas, Esc, espaço e setas são delas.
+        if self.settings_open || self.palette.is_open() || ctx.egui_wants_keyboard_input() {
             return;
         }
         let (f, r, space, m, left, right, esc, shift, s, c, z, x, d) = ctx.input(|i| {
@@ -1171,7 +1194,7 @@ impl PlayerApp {
                 let volume =
                     ui.add(egui::Slider::new(&mut self.volume, 0.0..=100.0).show_value(false).trailing_fill(true)).on_hover_text(t(Key::Volume));
                 if volume.changed() {
-                    self.engine.set_volume((self.volume / 100.0) as f32);
+                    self.apply_volume();
                 }
                 if volume.drag_stopped() {
                     self.save_prefs();
@@ -1250,7 +1273,7 @@ impl PlayerApp {
             ui.horizontal(|ui| {
                 if self.status_warn {
                     let (rect, _) = ui.allocate_exact_size(egui::vec2(14.0, 14.0), egui::Sense::hover());
-                    icons::paint(ui, rect, icons::Icon::Warning, ui.visuals().warn_fg_color);
+                    craft_icons::ui::image(ui, craft_icons::Icon::Warning).tint(ui.visuals().warn_fg_color).paint_at(ui, rect);
                 }
                 ui.label(egui::RichText::new(&self.status).small().weak());
             });
@@ -1277,6 +1300,7 @@ impl PlayerApp {
         // // local-player-rs: check manual deixa no log o provider TLS em uso
         // (`tls_provider=pure`) antes da linha de início.
         self.session.update_check_started();
+        self.update_failure_logged = false;
         self.updater.check_now(ctx);
     }
 }
@@ -1292,9 +1316,13 @@ impl Drop for PlayerApp {
     }
 }
 
-impl eframe::App for PlayerApp {
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+impl PlayerApp {
+    /// Um quadro da interface: o `eframe::App::ui` e os testes de UI (`ui_tests.rs`) chamam isto.
+    fn frame(&mut self, ui: &mut egui::Ui) {
         let ctx = &ui.ctx().clone();
+        if self.quit {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
         // Instrumentação permanente: taxas/cadência e o CSV de LOCALPLAYER_STATS.
         self.metrics.note_repaint();
         self.metrics.tick(Instant::now());
@@ -1329,6 +1357,10 @@ impl eframe::App for PlayerApp {
         // Atividade do usuário e atalhos (F fullscreen, R/Shift+R rotação,
         // Espaço play/pause, M mute, ←/→ ±5 s).
         self.note_activity(ctx);
+        // Ctrl+K: a paleta (o Player não dá outro uso ao atalho).
+        if craft_palette::Palette::shortcut_pressed(ctx) {
+            self.palette.toggle();
+        }
         self.handle_shortcuts(ctx);
 
         // Motor: drena eventos (posição, fim de faixa, erros) e, se a faixa
@@ -1379,6 +1411,14 @@ impl eframe::App for PlayerApp {
         // Check pedido ("Verificar atualizações"): nada encontrado/erro vira
         // linha de status; release nova abre o prompt do updater lá embaixo.
         match self.updater.status().clone() {
+            // Com as Configurações abertas o resultado aparece nelas (shell.rs), não na linha de status; a falha
+            // entra no log da sessão do mesmo jeito, uma vez.
+            craft_update::updater::Status::Failed(e) if self.settings_open => {
+                if !std::mem::replace(&mut self.update_failure_logged, true) {
+                    self.session.update_check_failed(&e);
+                }
+            }
+            _ if self.settings_open => {}
             craft_update::updater::Status::UpToDate => {
                 self.status = t(Key::UpToDate).into();
                 self.status_warn = false;
@@ -1435,7 +1475,9 @@ impl eframe::App for PlayerApp {
 
         // Em fullscreen a janela é só vídeo (os controles viram um overlay
         // flutuante embaixo); sem interação recente, até os painéis somem.
-        let hide_chrome = self.video.is_some() && self.transport.is_playing() && self.last_activity.elapsed() >= Duration::from_millis(2500);
+        let overlay = self.settings_open || self.palette.is_open();
+        let hide_chrome =
+            !overlay && self.video.is_some() && self.transport.is_playing() && self.last_activity.elapsed() >= Duration::from_millis(2500);
         // Controles escondidos = cursor escondido junto (a seta parada sobre a
         // imagem entrega que a UI está lá). Qualquer movimento/tecla repõe os dois.
         if hide_chrome {
@@ -1445,24 +1487,21 @@ impl eframe::App for PlayerApp {
         if !self.fullscreen && !hide_chrome {
             egui::containers::Panel::top("topo").show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    // Rótulo/hora só quando há largura: em janela estreita o
-                    // right_to_left abaixo estoura pra esquerda (a titlebar já
-                    // identifica o app).
-                    if ui.available_width() >= 620.0 {
-                        ui.strong(APP.name);
-                        ui.label(egui::RichText::new(&self.now).small().weak());
+                    // O título e o nome do arquivo só com largura (a titlebar já identifica o app); o nome corta
+                    // com reticências antes de chegar nos botões da suíte, que ocupam ~110 pts à direita.
+                    let room = ui.available_width() - 120.0;
+                    if room >= 120.0 {
+                        ui.allocate_ui_with_layout(
+                            egui::vec2(room, ui.spacing().interact_size.y),
+                            egui::Layout::left_to_right(egui::Align::Center),
+                            |ui| {
+                                ui.strong(APP.name);
+                                ui.add(egui::Label::new(egui::RichText::new(&self.now).small().weak()).truncate());
+                            },
+                        );
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if lab_ui::settings_ui(ui, &mut self.cfg, false).0 {
-                            theme::apply(ctx, self.cfg.theme);
-                            let _ = config::save(APP_ID, &self.cfg);
-                        }
-                        if ghost(ui, t(Key::CheckUpdates)).clicked() {
-                            self.check_updates(ctx);
-                        }
-                        if self.updater.status() == &craft_update::updater::Status::Checking {
-                            ui.spinner();
-                        }
+                        self.shell_buttons(ui);
                     });
                 });
             });
@@ -1505,24 +1544,13 @@ impl eframe::App for PlayerApp {
                         if ui.button(format!("+ {}", t(Key::AddFile))).clicked() {
                             // Seletor nativo; a resposta chega num frame
                             // posterior (src/pickers.rs). Cancelar = silêncio.
-                            self.pickers.ask_file(ui.ctx(), &[("Mídia", MEDIA_EXTS)]);
+                            self.add_file(ui.ctx());
                         }
                         if ui.button(format!("+ {}", t(Key::AddFolder))).clicked() {
-                            self.pickers.ask_folder(ui.ctx());
+                            self.add_folder(ui.ctx());
                         }
                         if ui.add_enabled(!self.playlist.files.is_empty(), egui::Button::new(t(Key::Clear))).clicked() {
-                            self.playlist.files.clear();
-                            self.idx = None;
-                            self.now.clear();
-                            self.status.clear();
-                            self.status_warn = false;
-                            self.resume_at = None;
-                            self.engine.stop();
-                            self.transport = engine::Transport::Stopped;
-                            self.position = 0.0;
-                            self.duration = 0.0;
-                            self.drop_video();
-                            resume::save_playlist(&self.playlist);
+                            self.clear_playlist();
                         }
                     });
                 });
@@ -1611,6 +1639,9 @@ impl eframe::App for PlayerApp {
             });
         }
 
+        self.settings_modal(ctx);
+        self.palette_ui(ctx);
+
         // Prompt de update (craft_update): modal próprio do crate, por cima
         // de tudo.
         match self.updater.show(ctx) {
@@ -1618,6 +1649,12 @@ impl eframe::App for PlayerApp {
             craft_update::updater::Action::OpenUrl(url) => open_url(&url),
             craft_update::updater::Action::Close => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
         }
+    }
+}
+
+impl eframe::App for PlayerApp {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.frame(ui);
     }
 }
 

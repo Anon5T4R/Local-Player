@@ -88,7 +88,7 @@
 	Add attachment	Añadir adjunto
 	Save	Guardar
 	no attachments	sin adjuntos
-	Settings	Ajustes
+	Settings	Configuración
 	Global hotkey	Atajo global
 	Set…	Definir…
 	Start with system	Iniciar con el sistema
@@ -159,3 +159,41 @@
 	embedded	integrada
 	Resume from last position	Reanudar desde donde quedó
 	Resume from {time}	Reanudar desde {time}
+	Automatic	Automático
+	Light	Claro
+	Dark	Oscuro
+	Theme: {mode}	Tema: {mode}
+	Search commands	Buscar comandos
+	Search commands ({shortcut})	Buscar comandos ({shortcut})
+	No command matches.	Ningún comando coincide.
+	Check for Updates…	Buscar actualizaciones…
+	Checking for updates…	Buscando actualizaciones…
+	About Local Player	Acerca de Local Player
+	version {version}	versión {version}
+	You are on the newest version.	Estás en la versión más reciente.
+	Exit	Salir
+	Help	Ayuda
+	Playlist	Lista de reproducción
+	Playback	Reproducción
+	Audio	Audio
+	Video	Vídeo
+	Subtitles	Subtítulos
+	Add file…	Añadir archivo…
+	Add folder…	Añadir carpeta…
+	Clear playlist	Vaciar lista de reproducción
+	Play/Pause	Reproducir/Pausar
+	Previous track	Pista anterior
+	Next track	Pista siguiente
+	Seek back 5 s	Retroceder 5 s
+	Seek forward 5 s	Avanzar 5 s
+	Volume up	Subir volumen
+	Volume down	Bajar volumen
+	Mute/Unmute	Silenciar/Activar sonido
+	Full screen	Pantalla completa
+	Rotate clockwise	Girar en sentido horario
+	Rotate counterclockwise	Girar en sentido antihorario
+	Statistics overlay	Panel de estadísticas
+	Show/hide subtitles	Mostrar/ocultar subtítulos
+	Next subtitle track	Siguiente pista de subtítulos
+	Subtitle delay −0.5 s	Retraso de subtítulos −0,5 s
+	Subtitle delay +0.5 s	Retraso de subtítulos +0,5 s

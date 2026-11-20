@@ -159,3 +159,41 @@
 	embedded	embutida
 	Resume from last position	Retomar de onde parou
 	Resume from {time}	Retomar de {time}
+	Automatic	Automático
+	Light	Claro
+	Dark	Escuro
+	Theme: {mode}	Tema: {mode}
+	Search commands	Buscar comandos
+	Search commands ({shortcut})	Buscar comandos ({shortcut})
+	No command matches.	Nenhum comando encontrado.
+	Check for Updates…	Verificar atualizações…
+	Checking for updates…	Verificando atualizações…
+	About Local Player	Sobre o Local Player
+	version {version}	versão {version}
+	You are on the newest version.	Você está na versão mais recente.
+	Exit	Sair
+	Help	Ajuda
+	Playlist	Playlist
+	Playback	Reprodução
+	Audio	Áudio
+	Video	Vídeo
+	Subtitles	Legendas
+	Add file…	Adicionar arquivo…
+	Add folder…	Adicionar pasta…
+	Clear playlist	Limpar playlist
+	Play/Pause	Tocar/Pausar
+	Previous track	Faixa anterior
+	Next track	Próxima faixa
+	Seek back 5 s	Voltar 5 s
+	Seek forward 5 s	Avançar 5 s
+	Volume up	Aumentar volume
+	Volume down	Diminuir volume
+	Mute/Unmute	Mutar/Desmutar
+	Full screen	Tela cheia
+	Rotate clockwise	Girar no sentido horário
+	Rotate counterclockwise	Girar no sentido anti-horário
+	Statistics overlay	Painel de estatísticas
+	Show/hide subtitles	Mostrar/ocultar legendas
+	Next subtitle track	Próxima faixa de legenda
+	Subtitle delay −0.5 s	Atraso da legenda −0,5 s
+	Subtitle delay +0.5 s	Atraso da legenda +0,5 s

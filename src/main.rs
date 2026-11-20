@@ -342,6 +342,13 @@ impl PlayerApp {
         // Volume/mute persistem entre sessões e valem já no primeiro play.
         let prefs = resume::load_prefs();
         let volume = prefs.volume.clamp(0.0, 100.0);
+        // Os testes de UI montam o app sem o motor (sem thread nem saída de áudio): ver `PlayerEngine::detached`.
+        #[cfg(test)]
+        let mut engine = {
+            let _ = &metrics;
+            engine::PlayerEngine::detached()
+        };
+        #[cfg(not(test))]
         let mut engine = engine::PlayerEngine::new(metrics.clone());
         engine.set_volume((volume / 100.0) as f32);
         engine.set_muted(prefs.muted);

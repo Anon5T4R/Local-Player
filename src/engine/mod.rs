@@ -213,6 +213,14 @@ impl PlayerEngine {
         Self { cmd, ev: ev_rx, clock, transport: Transport::Stopped, position: 0.0, duration: 0.0 }
     }
 
+    /// Sem a thread do motor (nem saída de áudio): os comandos caem no vazio. Para os testes de UI, que montam o
+    /// app inteiro num runner sem placa de som (abrir a saída de áudio lá derruba o processo).
+    #[cfg(test)]
+    pub fn detached() -> Self {
+        let (_, ev) = channel();
+        Self { cmd: None, ev, clock: Arc::new(Clock::default()), transport: Transport::Stopped, position: 0.0, duration: 0.0 }
+    }
+
     fn send(&self, cmd: Cmd) {
         if let Some(tx) = &self.cmd {
             let _ = tx.send(cmd);

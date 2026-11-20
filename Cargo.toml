@@ -53,7 +53,7 @@ winresource = "0.1"
 
 [dependencies]
 eframe = "0.37"
-egui = "0.37"
+egui = { version = "0.37", features = ["default_fonts", "monochrome_emoji_fonts"] }
 lab-ui = { path = "lab-ui" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

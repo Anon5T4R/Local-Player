@@ -73,6 +73,12 @@ craft-update = { path = "libs/craft-libs/crates/update", features = ["egui", "ic
 # Linux: a escolha clara/escura do desktop chega ao `ctx.system_theme()` (o winit não informa lá);
 # fonte no local-libs, espelhada aqui pelo sync.ps1.
 craft-desktop-theme = { path = "libs/craft-libs/crates/desktop-theme" }
+# Os ícones dos conceitos comuns da suíte (tema, configurações, busca…) e o botão de tema; fonte: local-libs.
+craft-icons = { path = "libs/craft-libs/crates/icons", features = ["egui"] }
+# A paleta de comandos da suíte (lupa e Ctrl+K); fonte: local-libs.
+craft-palette = { path = "libs/craft-libs/crates/palette" }
+# Carregador de SVG dos ícones da suíte (resvg, Rust puro); fork vendored via [patch].
+egui_extras = { version = "0.37", default-features = false, features = ["svg"] }
 # Motor de decode (fase 2): containers + codecs clean-room do FilmCraft
 # (vendored em libs/filmcraft) e o bootstrap de áudio do symphonia.
 filmcraft-codecs = { path = "libs/filmcraft/crates/codecs" }
@@ -111,6 +117,8 @@ symphonia = { version = "0.5.5", default-features = false, features = [
 ] }
 
 [dev-dependencies]
+# Testes de UI sem janela (egui_kittest): a barra, as Configurações e a paleta respondem a cliques e teclas.
+egui_kittest = { version = "0.37", default-features = false, features = ["wgpu"] }
 # Valida o WGSL do vídeo na CPU: um erro no shader derrubaria o app no
 # arranque, não na hora de pintar. `naga` já está no lock (dependência do wgpu).
 naga = { version = "30", features = ["wgsl-in"] }

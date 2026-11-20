@@ -382,9 +382,19 @@ fn assert_inside(harness: &Harness<'_, PlayerApp>, what: &str, width: f32) {
 fn every_dialog_fits_the_narrow_window() {
     let _serial = serial();
     type Open = fn(&mut PlayerApp);
-    // O cartão de atualização (craft-update) fica de fora: ainda passa da janela de 340 por uma linha sem quebra do
-    // próprio craft-update (conserto no local-libs).
-    let dialogs: [(&str, Open); 2] = [("settings", |app| app.settings_open = true), ("palette", |app| app.palette.open())];
+    let dialogs: [(&str, Open); 3] = [
+        ("settings", |app| app.settings_open = true),
+        ("palette", |app| app.palette.open()),
+        // O cartão de atualização do craft-update, com uma versão nova oferecida.
+        ("update", |app| {
+            let release = craft_update::Release {
+                tag: "v9.9.9".into(),
+                version: craft_update::version::parse("9.9.9"),
+                ..craft_update::Release::default()
+            };
+            app.updater.offer(release);
+        }),
+    ];
     for (name, open) in dialogs {
         for (language, mode) in [("pt-br", ThemeMode::Dark), ("es", ThemeMode::Light)] {
             let mut app = app_with_tracks("dialogs", Prefs::new(language, mode));

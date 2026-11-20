@@ -24,7 +24,6 @@ pub enum Icon {
     ExitFullscreen,
     Rotate,
     Subtitles,
-    Warning,
 }
 
 /// Tamanho dos botões de ícone (mesma altura útil do `interact_size` do tema).
@@ -127,12 +126,6 @@ pub fn paint(ui: &Ui, rect: Rect, icon: Icon, tint: Color32) {
             painter.line_segment([egui::pos2(box_rect.left() + 0.3 * s, y), egui::pos2(box_rect.left() + 0.85 * s, y)], stroke);
             painter.line_segment([egui::pos2(box_rect.left() + 1.0 * s, y), egui::pos2(box_rect.right() - 0.3 * s, y)], stroke);
         }
-        Icon::Warning => {
-            let points = vec![at(0.0, -1.0), at(1.0, 0.85), at(-1.0, 0.85)];
-            painter.add(Shape::closed_line(points, stroke));
-            painter.line_segment([at(0.0, -0.4), at(0.0, 0.25)], stroke);
-            painter.circle_filled(at(0.0, 0.62), (0.12 * s).max(0.8), tint);
-        }
     }
 }
 
@@ -208,7 +201,6 @@ mod tests {
             Icon::ExitFullscreen,
             Icon::Rotate,
             Icon::Subtitles,
-            Icon::Warning,
         ]
         .into_iter()
         .map(|icon| {

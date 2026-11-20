@@ -387,11 +387,8 @@ fn every_dialog_fits_the_narrow_window() {
         ("palette", |app| app.palette.open()),
         // O cartão de atualização do craft-update, com uma versão nova oferecida.
         ("update", |app| {
-            let release = craft_update::Release {
-                tag: "v9.9.9".into(),
-                version: craft_update::version::parse("9.9.9"),
-                ..craft_update::Release::default()
-            };
+            let release =
+                craft_update::Release { tag: "v9.9.9".into(), version: craft_update::version::parse("9.9.9"), ..craft_update::Release::default() };
             app.updater.offer(release);
         }),
     ];

@@ -108,7 +108,9 @@ fn main() -> eframe::Result<()> {
     let prefs = Prefs::load_from(&prefs::config_dir(APP_ID).join("config.json"));
     i18n::set_language(&prefs.language);
 
-    let mut viewport = egui::ViewportBuilder::default().with_title(APP.name).with_inner_size([480.0, 600.0])
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_title(APP.name)
+        .with_inner_size([480.0, 600.0])
         // A barra de controles (tempo, busca, volume) foi desenhada para 480: abaixo disso o tempo cobre o volume.
         .with_min_inner_size([480.0, 360.0]);
     // Ícone da janela (o .exe já cunha o mesmo no build.rs — Resources).

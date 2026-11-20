@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use craft_icons::ThemeMode;
 use egui::accesskit::Role;
 use egui_kittest::Harness;
-use egui_kittest::kittest::Queryable;
+use egui_kittest::kittest::{NodeT, Queryable};
 
 use crate::prefs::Prefs;
 use crate::{PlayerApp, i18n, metrics, theme};
@@ -68,27 +68,20 @@ fn app_with_tracks(name: &str, prefs: Prefs) -> PlayerApp {
     app
 }
 
-// O kittest não tem o provedor de fontes do sistema: ← e − viram "tofu" nos testes. A checagem de
-// acessibilidade fica desligada: os botões só-ícone da suíte ganham nome pela dica, e a do kittest não a vê.
-fn harness_sized(app: PlayerApp, width: f32) -> Harness<'static, PlayerApp> {
-    Harness::builder()
-        .with_size(egui::vec2(width, 640.0))
-        .with_step_dt(1.0 / 60.0)
-        .allow_missing_glyphs()
-        .with_accessibility_check(false)
-        .build_ui_state(
-            move |ui, app: &mut PlayerApp| {
-                egui_extras::install_image_loaders(ui.ctx());
-                i18n::set_language(&app.prefs.language);
-                theme::apply(ui.ctx(), app.prefs.mode());
-                app.frame(ui);
-            },
-            app,
-        )
+fn harness_sized(app: PlayerApp, width: f32, height: f32) -> Harness<'static, PlayerApp> {
+    Harness::builder().with_size(egui::vec2(width, height)).with_step_dt(1.0 / 60.0).build_ui_state(
+        move |ui, app: &mut PlayerApp| {
+            egui_extras::install_image_loaders(ui.ctx());
+            i18n::set_language(&app.prefs.language);
+            theme::apply(ui.ctx(), app.prefs.mode());
+            app.frame(ui);
+        },
+        app,
+    )
 }
 
 fn harness(app: PlayerApp) -> Harness<'static, PlayerApp> {
-    harness_sized(app, 700.0)
+    harness_sized(app, 700.0, 640.0)
 }
 
 /// Os botões da barra de cima, da esquerda para a direita.
@@ -328,7 +321,7 @@ fn escape_closes_settings_without_leaving_fullscreen() {
 fn the_top_bar_does_not_overlap_at_any_width() {
     let _serial = serial();
     for width in [340.0_f32, 400.0, 480.0, 620.0, 800.0] {
-        let mut harness = harness_sized(app_with_tracks("bar", Prefs::new("pt-br", ThemeMode::Light)), width);
+        let mut harness = harness_sized(app_with_tracks("bar", Prefs::new("pt-br", ThemeMode::Light)), width, 640.0);
         harness.run_steps(2);
         let rects = bar_buttons(&harness);
         assert_eq!(rects.len(), 3, "{width}: lupa, tema e engrenagem: {rects:?}");
@@ -347,7 +340,7 @@ fn review_shots() {
     let _serial = serial();
     for (width, label) in [(NARROW, "480"), (1100.0, "1100")] {
         for (mode, name) in [(ThemeMode::Light, "light"), (ThemeMode::Dark, "dark")] {
-            let mut harness = harness_sized(app_with_tracks("shots", Prefs::new("en", mode)), width);
+            let mut harness = harness_sized(app_with_tracks("shots", Prefs::new("en", mode)), width, 640.0);
             harness.run_steps(2);
             shot(&mut harness, &format!("bar-{name}-{label}"));
             click_bar(&mut harness, GEAR);
@@ -358,7 +351,98 @@ fn review_shots() {
         }
     }
     // A barra na largura mínima útil (340) também vai para a revisão.
-    let mut harness = harness_sized(app_with_tracks("shots-340", Prefs::new("en", ThemeMode::Light)), 340.0);
+    let mut harness = harness_sized(app_with_tracks("shots-340", Prefs::new("en", ThemeMode::Light)), 340.0, 640.0);
     harness.run_steps(2);
     shot(&mut harness, "bar-light-340");
+}
+
+/// A largura mínima que a casca promete (a da barra de cima; a janela inicial é 480).
+const MINIMUM: f32 = 340.0;
+
+/// Todo nó da tela, em coordenadas do accesskit, dentro da janela de `width` pontos.
+fn assert_inside(harness: &Harness<'_, PlayerApp>, what: &str, width: f32) {
+    for node in harness.root().children_recursive() {
+        // O texto de um campo corre além da borda do próprio campo (o egui o recorta ao desenhar): vale o nó do campo.
+        if node.accesskit_node().role() == Role::TextRun {
+            continue;
+        }
+        let Some(rect) = node.accesskit_node().bounding_box() else { continue };
+        if rect.width() > 0.0 {
+            assert!(
+                rect.x0 >= -0.5 && rect.x1 <= f64::from(width) + 0.5,
+                "{what}: {:?} fora da janela de {width}: {rect:?}",
+                node.accesskit_node().role()
+            );
+        }
+    }
+}
+
+/// Cada diálogo e janela do app cabe na largura mínima: nenhum nó passa da borda, com a playlist cheia.
+#[test]
+fn every_dialog_fits_the_narrow_window() {
+    let _serial = serial();
+    type Open = fn(&mut PlayerApp);
+    // O cartão de atualização (craft-update) fica de fora: ainda passa da janela de 340 por uma linha sem quebra do
+    // próprio craft-update (conserto no local-libs).
+    let dialogs: [(&str, Open); 2] = [("settings", |app| app.settings_open = true), ("palette", |app| app.palette.open())];
+    for (name, open) in dialogs {
+        for (language, mode) in [("pt-br", ThemeMode::Dark), ("es", ThemeMode::Light)] {
+            let mut app = app_with_tracks("dialogs", Prefs::new(language, mode));
+            open(&mut app);
+            let mut harness = harness_sized(app, MINIMUM, 640.0);
+            harness.run_steps(6);
+            shot(&mut harness, &format!("dialog-{name}-{language}-{MINIMUM}"));
+            assert_inside(&harness, &format!("{name}/{language}"), MINIMUM);
+        }
+    }
+}
+
+/// Todo campo de texto e combobox se anuncia por um nome (leitor de tela), não só pelo texto de dica.
+#[test]
+fn every_field_has_a_name() {
+    let _serial = serial();
+    let mut app = app_with_tracks("names", Prefs::new("en", ThemeMode::Dark));
+    app.settings_open = true;
+    let harness = harness_sized(app, 700.0, 640.0);
+    let mut seen = 0;
+    for role in [Role::TextInput, Role::ComboBox] {
+        for node in harness.query_all_by_role(role) {
+            seen += 1;
+            let name = node.accesskit_node().label().unwrap_or_default();
+            assert!(!name.trim().is_empty(), "{role:?} sem nome: {:?}", node.rect());
+        }
+    }
+    assert_eq!(seen, 1, "o combo de idioma");
+}
+
+/// A paleta, com faixas na playlist, fica dentro da janela estreita e da média.
+#[test]
+fn the_palette_fits_narrow_and_medium_windows() {
+    let _serial = serial();
+    for width in [MINIMUM, 500.0] {
+        let mut harness = harness_sized(app_with_tracks("palette-narrow", Prefs::new("pt-br", ThemeMode::Dark)), width, 640.0);
+        harness.run_steps(2);
+        click_bar(&mut harness, SEARCH);
+        let rows: Vec<egui::Rect> = harness.get_all_by_role(Role::ListBoxOption).map(|node| node.rect()).collect();
+        assert!(!rows.is_empty());
+        for rect in &rows {
+            assert!(rect.min.x >= 0.0 && rect.max.x <= width, "linha da paleta fora da janela de {width}: {rect:?}");
+        }
+        assert_inside(&harness, "palette", width);
+    }
+}
+
+/// A tela principal com conteúdo (nome de arquivo e status compridos, playlist cheia) cabe na janela inicial.
+#[test]
+fn the_main_screen_with_long_names_fits_the_initial_window() {
+    let _serial = serial();
+    let long = "Episódio 03 - Um título absurdamente longo para uma faixa de uma temporada que ninguém terminou de ver.mkv";
+    let mut app = app_with_tracks("long", Prefs::new("pt-br", ThemeMode::Light));
+    app.playlist.files.push(format!("C:/media/{long}"));
+    app.now = long.into();
+    app.status = format!("Legenda: {long}");
+    let mut harness = harness_sized(app, NARROW, 640.0);
+    harness.run_steps(3);
+    shot(&mut harness, "main-long-480");
+    assert_inside(&harness, "main", NARROW);
 }

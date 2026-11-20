@@ -1195,8 +1195,16 @@ impl PlayerApp {
                 let trailing = if self.video.is_some() { 3.0 } else { 1.0 };
                 let reserved = trailing * (icons::BUTTON.x + ui.spacing().item_spacing.x) + 4.0;
                 ui.spacing_mut().slider_width = (ui.available_width() - reserved).clamp(40.0, 96.0);
-                let volume =
-                    ui.add(egui::Slider::new(&mut self.volume, 0.0..=100.0).show_value(false).trailing_fill(true)).on_hover_text(tr("Volume"));
+                let volume = ui
+                    .scope(|ui| {
+                        accent_fill(ui);
+                        ui.add(egui::Slider::new(&mut self.volume, 0.0..=100.0).show_value(false).trailing_fill(true))
+                    })
+                    .inner
+                    .on_hover_text(tr("Volume"));
+                // O nome do controle para leitores de tela (a dica só aparece com o mouse).
+                let volume_now = f64::from(self.volume);
+                volume.widget_info(|| egui::WidgetInfo::slider(true, volume_now, tr("Volume")));
                 if volume.changed() {
                     self.apply_volume();
                 }
@@ -1251,9 +1259,11 @@ impl PlayerApp {
                 // fina no meio de 20 px e sobrava vão morto em cima/embaixo.
                 ui.spacing_mut().interact_size.y = Self::SEEK_BAR_H;
                 ui.spacing_mut().slider_width = ui.available_width().max(80.0);
+                accent_fill(ui);
                 ui.add_enabled(dur > 0.0, egui::Slider::new(&mut value, 0.0..=dur.max(0.001)).show_value(false).trailing_fill(true))
             })
             .inner;
+        bar.widget_info(|| egui::WidgetInfo::slider(dur > 0.0, f64::from(value), tr("Seek")));
         if bar.drag_started() {
             self.scrubbing = true;
         }
@@ -1279,7 +1289,7 @@ impl PlayerApp {
                     let (rect, _) = ui.allocate_exact_size(egui::vec2(14.0, 14.0), egui::Sense::hover());
                     craft_icons::ui::image(ui, craft_icons::Icon::Warning).tint(ui.visuals().warn_fg_color).paint_at(ui, rect);
                 }
-                ui.label(egui::RichText::new(&self.status).small().weak());
+                ui.add(egui::Label::new(egui::RichText::new(&self.status).small().weak()).truncate());
             });
         }
     }
@@ -1685,6 +1695,13 @@ impl Skin {
             hover: if v.dark_mode { egui::Color32::from_white_alpha(18) } else { egui::Color32::from_black_alpha(14) },
         }
     }
+}
+
+/// A parte já percorrida dos sliders (volume e busca) em accent cheio: a lavagem translúcida de seleção é clara
+/// demais para um preenchimento sem texto por cima.
+fn accent_fill(ui: &mut egui::Ui) {
+    let accent = ui.visuals().selection.stroke.color;
+    ui.visuals_mut().selection.bg_fill = accent;
 }
 
 /// Ação de linha: transparente até o hover (o "ghost button" do local-pdf).

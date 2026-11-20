@@ -71,13 +71,13 @@ Sucessor pure-Rust do Local-Player (mpv + IPC). Plano completo:
 - [x] **9. Janela no tamanho do vídeo** (pedido do João; dev, pós-v0.3.0) — na abertura de uma
       faixa de vídeo a janela vai para o tamanho de EXIBIÇÃO do vídeo (PAR anamórfico + rotação
       do usuário), 1:1 — pixels do vídeo = pixels da tela — somando o chrome INTERNO do app
-      (topo + controles + lista) e com cap na área útil (`lab_ui::workarea::fit_to_work_area_with_chrome`:
+      (topo + controles + lista) e com cap na área útil (`workarea::fit_to_work_area_with_chrome`:
       vídeo maior que o monitor abre no maior tamanho que cabe, nunca numa janela maior que a
       tela). **Decisão:** o ajuste só AGE quando a resolução de exibição MUDA — episódios do
       mesmo tamanho não re-ajustam a janela, então um resize manual do usuário sobrevive à
       playlist; faixas de tamanhos diferentes voltam ao 1:1 (como o player antigo abria). Áudio
       puro e fullscreen não mexem na janela; rotação não redimensiona (o R é do usuário). A math
-      pura ganhou testes (`fit_size` em `lab-ui/src/workarea.rs`, `window_video_px` em
+      pura ganhou testes (`fit_size` em `src/workarea.rs`, `window_video_px` em
       `src/main.rs`).
 - [x] **10. Avaliação low-end (dev, pós-v0.3.0)** — medido com `--bench --seconds 30 --hw off`
       (decode SW; o MF/DXVA não usa os pools) no MKV 1080p H.264 do teste, Ryzen 5 5500U (6C/12T),

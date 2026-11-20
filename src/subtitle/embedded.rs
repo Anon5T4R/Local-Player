@@ -179,13 +179,13 @@ pub fn pick(tracks: &[Embedded], preferred: &str) -> Option<usize> {
     tracks.iter().position(|t| language_matches(preferred, &t.language)).or(Some(0))
 }
 
-/// Idioma preferido a partir do idioma da UI (o app nasce com o do sistema; é o
-/// mesmo idioma que o usuário escolheu para a interface). Códigos ISO 639-2.
-pub fn preferred_language(lang: lab_ui::i18n::Lang) -> &'static str {
-    match lang {
-        lab_ui::i18n::Lang::Pt => "por",
-        lab_ui::i18n::Lang::En => "eng",
-        lab_ui::i18n::Lang::Es => "spa",
+/// Idioma preferido a partir do idioma da UI (`en`, `pt-br`, `es`; o que o usuário escolheu para a interface ou
+/// o do sistema, no Automático). Códigos ISO 639-2.
+pub fn preferred_language(ui_language: &str) -> &'static str {
+    match ui_language {
+        "pt-br" => "por",
+        "es" => "spa",
+        _ => "eng",
     }
 }
 

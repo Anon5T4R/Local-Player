@@ -1,7 +1,6 @@
-//! Área útil do monitor e encaixe de janela — extraído dos mains do
-//! lab-image/lab-player (era o mesmo ~90 linhas duplicado nos dois).
+//! Área útil do monitor e encaixe de janela.
 //!
-//! `fit_to_work_area` é o caminho único pra "janela do tamanho do
+//! `fit_to_work_area_with_chrome` é o caminho único pra "janela do tamanho do
 //! conteúdo": px → points, clamp na área útil (taskbar descontada,
 //! auto-hide inclusa) e centralização contando o chrome (outer−inner do
 //! viewport) pro OUTER inteiro caber.
@@ -68,8 +67,9 @@ pub fn work_area(ctx: &egui::Context) -> (egui::Vec2, egui::Pos2) {
 /// Tamanho INTERNO (points) para um conteúdo de `w_px`×`h_px` pixels: 1:1
 /// (1 ponto = `ppp` pixels) quando cabe, encolhido uniformemente quando não
 /// cabe — nunca maior que a área útil menos o chrome da janela. Math pura,
-/// testável sem `Context` (o `fit_to_work_area` abaixo é só a leitura do
-/// ambiente em volta dela).
+/// testável sem `Context` (o `fit_to_work_area_with_chrome` abaixo é só a leitura do
+/// ambiente em volta dela). O app usa a variante com chrome fixo; esta é a forma simples que os testes cobrem.
+#[cfg(test)]
 pub fn fit_size(avail: egui::Vec2, window_chrome: egui::Vec2, w_px: f32, h_px: f32, ppp: f32) -> egui::Vec2 {
     fit_size_with_fixed_chrome(avail, window_chrome, w_px, h_px, 0.0, ppp)
 }
@@ -93,15 +93,11 @@ pub fn fit_size_with_fixed_chrome(avail: egui::Vec2, window_chrome: egui::Vec2, 
     egui::vec2((w * s).max(1.0), (h * s + fixed).max(1.0))
 }
 
-/// Converte o tamanho de conteúdo (px) em (`InnerSize`, `OuterPosition`)
-/// de viewport: points com clamp na área útil e posição centrada. O chrome
-/// da janela (bordas+title bar, outer−inner do viewport real) entra na
-/// conta — o OUTER inteiro cabe, title bar não invade a taskbar.
-pub fn fit_to_work_area(ctx: &egui::Context, w_px: f32, h_px: f32) -> (egui::Vec2, egui::Pos2) {
-    fit_to_work_area_with_chrome(ctx, w_px, h_px, 0.0)
-}
-
-/// [`fit_to_work_area`] com o chrome INTERNO do app (topo/controles/lista) em
+/// Converte o tamanho de conteúdo (px) em (`InnerSize`, `OuterPosition`) de viewport: points com clamp na área
+/// útil e posição centrada. O chrome da janela (bordas+title bar, outer−inner do viewport real) entra na conta —
+/// o OUTER inteiro cabe, title bar não invade a taskbar.
+///
+/// `fixed_chrome_px` é o chrome INTERNO do app (topo/controles/lista) em
 /// pixels: ele não escala com o conteúdo, então a janela abraça o vídeo em 1:1
 /// na maior escala que cabe na tela.
 pub fn fit_to_work_area_with_chrome(ctx: &egui::Context, w_px: f32, h_px: f32, fixed_chrome_px: f32) -> (egui::Vec2, egui::Pos2) {

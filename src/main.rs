@@ -1,11 +1,10 @@
 //! Local Player - player de mídia 100% local e offline em Rust puro.
 //!
-//! Fases 2–4: shell egui/eframe da suíte (playlist de arquivo/pasta,
-//! drag-and-drop, "abrir com", tema, i18n e autoupdate), motor de áudio de
-//! verdade (`engine.rs`, relógio mestre = áudio), **vídeo SW** (demux/decode
-//! pelo hub do FilmCraft em thread própria, frame escolhido por PTS e pintado
-//! numa textura wgpu com shader YUV→RGB, `video/`) e **legenda externa**
-//! SRT/WebVTT/ASS (`subtitle/`) desenhada pela egui sobre o vídeo.
+//! O app: casca egui/eframe da suíte (playlist de arquivo/pasta, drag-and-drop, "abrir com", tema, idiomas,
+//! paleta de comandos e autoupdate), motor de áudio (`engine/`, relógio mestre = áudio), vídeo (demux/decode
+//! pelo hub do FilmCraft em thread própria, frame escolhido por PTS e pintado numa textura wgpu com shader
+//! YUV→RGB, `video/`) e legendas externas e embutidas SRT/WebVTT/ASS/tx3g (`subtitle/`) desenhadas pela egui
+//! sobre o vídeo.
 //!
 //! "Nada pesado na UI thread": listagem de pasta e os decoders (áudio e vídeo)
 //! rodam em threads próprias e falam com a UI por canais; a UI só sobe o frame
@@ -15,15 +14,19 @@
 
 mod cli;
 mod engine;
+mod i18n;
 mod icons;
 mod metrics;
 mod pickers;
+mod prefs;
 mod queue;
 mod resume;
 mod session_log;
 mod shell;
 mod subtitle;
+mod theme;
 mod video;
+mod workarea;
 
 #[cfg(test)]
 mod ui_tests;
@@ -34,9 +37,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use eframe::egui;
-use lab_ui::config::{self, Config};
-use lab_ui::i18n::{self, Key};
-use lab_ui::theme;
+use i18n::{tr, tr_fmt};
+use prefs::Prefs;
 
 const APP_ID: &str = "local-player-rs";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -103,7 +105,8 @@ fn main() -> eframe::Result<()> {
     // `Arc<Metrics>` (overlay da tecla D e CSV de LOCALPLAYER_STATS).
     let metrics = Arc::new(metrics::Metrics::new());
 
-    let cfg = config::load(APP_ID);
+    let prefs = Prefs::load_from(&prefs::config_dir(APP_ID).join("config.json"));
+    i18n::set_language(&prefs.language);
 
     let mut viewport = egui::ViewportBuilder::default().with_title(APP.name).with_inner_size([480.0, 600.0]);
     // Ícone da janela (o .exe já cunha o mesmo no build.rs — Resources).
@@ -114,8 +117,8 @@ fn main() -> eframe::Result<()> {
     #[cfg_attr(not(windows), allow(unused_mut))]
     let mut options = eframe::NativeOptions { viewport, ..Default::default() };
     // Renderer wgpu no Windows (eframe 0.37 já traz wgpu com os backends
-    // padrão — DX12 entra pelo default features do wgpu): a fase 2 pinta o
-    // frame de vídeo numa textura wgpu, e o mesmo backend serve desde já.
+    // padrão — DX12 entra pelo default features do wgpu): o frame de vídeo é
+    // pintado numa textura wgpu, e o mesmo backend serve o resto da UI.
     // DX12 only (Vulkan briga com drivers e o GL do wgpu não é caminho de
     // produção); a env WGPU_BACKEND vence como escape. DX12 compila com FXC
     // (d3dcompiler_47.dll, parte do Windows) — o default do wgpu 30 é
@@ -153,10 +156,10 @@ fn main() -> eframe::Result<()> {
         Box::new(move |cc| {
             // O carregador de SVG dos ícones da suíte (craft-icons).
             egui_extras::install_image_loaders(&cc.egui_ctx);
-            theme::apply(&cc.egui_ctx, cfg.theme);
+            theme::apply(&cc.egui_ctx, prefs.mode());
             // Linux: a escolha clara/escura do desktop, que o winit não informa.
             craft_desktop_theme::follow(&cc.egui_ctx);
-            let mut app = PlayerApp::new(cfg, args, cc.wgpu_render_state.as_ref(), metrics);
+            let mut app = PlayerApp::new(prefs, args, cc.wgpu_render_state.as_ref(), metrics);
             // Check de update no arranque: achou release nova, o prompt do
             // updater abre sozinho (craft_update::dialog).
             app.updater.check_at_start(&cc.egui_ctx);
@@ -210,7 +213,7 @@ enum SubtitleSource {
 }
 
 struct PlayerApp {
-    cfg: Config,
+    prefs: Prefs,
     playlist: resume::Playlist,
     /// Arquivo selecionado na playlist.
     idx: Option<usize>,
@@ -318,7 +321,7 @@ struct PlayerApp {
 }
 
 impl PlayerApp {
-    fn new(cfg: Config, args: Vec<String>, render_state: Option<&eframe::egui_wgpu::RenderState>, metrics: Arc<metrics::Metrics>) -> Self {
+    fn new(prefs: Prefs, args: Vec<String>, render_state: Option<&eframe::egui_wgpu::RenderState>, metrics: Arc<metrics::Metrics>) -> Self {
         // "Abrir com": adiciona os arquivos de args na playlist e seleciona o
         // primeiro.
         let mut playlist = resume::load_playlist();
@@ -340,8 +343,8 @@ impl PlayerApp {
         }
 
         // Volume/mute persistem entre sessões e valem já no primeiro play.
-        let prefs = resume::load_prefs();
-        let volume = prefs.volume.clamp(0.0, 100.0);
+        let saved = resume::load_prefs();
+        let volume = saved.volume.clamp(0.0, 100.0);
         // Os testes de UI montam o app sem o motor (sem thread nem saída de áudio): ver `PlayerEngine::detached`.
         #[cfg(test)]
         let mut engine = {
@@ -351,10 +354,10 @@ impl PlayerApp {
         #[cfg(not(test))]
         let mut engine = engine::PlayerEngine::new(metrics.clone());
         engine.set_volume((volume / 100.0) as f32);
-        engine.set_muted(prefs.muted);
+        engine.set_muted(saved.muted);
 
         let mut app = Self {
-            cfg,
+            prefs,
             playlist,
             idx: None,
             now: String::new(),
@@ -365,7 +368,7 @@ impl PlayerApp {
             updater: craft_update::updater::Updater::new(&APP, CURRENT_VERSION),
             resume: resume::load(),
             volume,
-            muted: prefs.muted,
+            muted: saved.muted,
             transport: engine::Transport::Stopped,
             position: 0.0,
             duration: 0.0,
@@ -400,7 +403,7 @@ impl PlayerApp {
             fit_target: None,
             settings_open: false,
             palette: craft_palette::Palette::default(),
-            config_file: config::config_dir(APP_ID).join("config.json"),
+            config_file: prefs::config_dir(APP_ID).join("config.json"),
             quit: false,
             update_failure_logged: false,
         };
@@ -736,7 +739,7 @@ impl PlayerApp {
         // O chrome interno é do layout (points) e NÃO escala com o vídeo; o
         // helper desconta ele da área útil antes de encolher (pixels).
         let chrome_px = self.chrome.y * ctx.pixels_per_point();
-        let (inner, pos) = lab_ui::workarea::fit_to_work_area_with_chrome(ctx, w as f32, h as f32, chrome_px);
+        let (inner, pos) = workarea::fit_to_work_area_with_chrome(ctx, w as f32, h as f32, chrome_px);
         if self.fit_target.is_some_and(|t| (t - inner).length() < 1.5) {
             return;
         }
@@ -834,8 +837,7 @@ impl PlayerApp {
             return;
         }
         self.subtitle_delay = (self.subtitle_delay + delta).clamp(-60.0, 60.0);
-        let lang = self.cfg.lang;
-        self.status = format!("{} {:+.1} {}", i18n::t(lang, Key::SubtitleDelay), self.subtitle_delay, i18n::t(lang, Key::SecondsShort));
+        self.status = format!("{} {:+.1} {}", tr("Subtitle delay"), self.subtitle_delay, tr("s"));
         self.status_warn = false;
     }
 
@@ -897,8 +899,7 @@ impl PlayerApp {
         if tracks.is_empty() {
             return;
         }
-        let lang = self.cfg.lang;
-        let preferred = subtitle::preferred_language(lang);
+        let preferred = subtitle::preferred_language(i18n::active_code());
         // Externa carregada vence a faixa do container (regra única testada em
         // `subtitle::choose_source`; aqui normalmente a extração nem foi iniciada).
         let has_external = matches!(self.subtitle_source, SubtitleSource::External);
@@ -909,8 +910,7 @@ impl PlayerApp {
         self.embedded = tracks;
         self.embedded_idx = ix;
         self.subtitle_source = SubtitleSource::Embedded { language: language.clone(), codec: codec.clone() };
-        let t = |k: Key| i18n::t(lang, k);
-        self.status = format!("{}: {} · {} · {}", t(Key::Subtitles), t(Key::SubtitleEmbedded), language, codec);
+        self.status = format!("{}: {} · {} · {}", tr("Subtitles (S)"), tr("embedded"), language, codec);
         self.status_warn = false;
     }
 
@@ -921,7 +921,6 @@ impl PlayerApp {
             return;
         }
         self.embedded_idx = (self.embedded_idx + 1) % self.embedded.len();
-        let lang = self.cfg.lang;
         let (ix, count, language, codec) = (
             self.embedded_idx,
             self.embedded.len(),
@@ -932,7 +931,7 @@ impl PlayerApp {
         self.subtitles = Some(self.embedded[ix].subs.clone());
         self.subtitles_on = true;
         self.subtitle_source = SubtitleSource::Embedded { language: language.clone(), codec: codec.clone() };
-        self.status = format!("{} {}/{}: {language} · {codec}", i18n::t(lang, Key::SubtitleTrack), ix + 1, count);
+        self.status = format!("{} {}/{}: {language} · {codec}", tr("Subtitle track (C)"), ix + 1, count);
         self.status_warn = false;
     }
 
@@ -945,7 +944,7 @@ impl PlayerApp {
     }
 
     /// Drena o pipeline de vídeo, escolhe o frame devido pelo relógio mestre e
-    /// sobe para a GPU. Fim/erro de vídeo viram o mesmo fluxo da fase 2.
+    /// sobe para a GPU. Fim/erro de vídeo seguem o mesmo fluxo do áudio.
     fn pump_video(&mut self, ctx: &egui::Context) {
         let Some(pipeline) = self.video.as_ref() else { return };
         let generation = pipeline.generation;
@@ -1166,29 +1165,27 @@ impl PlayerApp {
     /// não existem nas fontes embutidas e saíam todos com o MESMO glifo de
     /// "falta" — o bug dos quatro botões idênticos do print.
     fn controls_panel(&mut self, ui: &mut egui::Ui) {
-        let lang = self.cfg.lang;
-        let t = |k: Key| i18n::t(lang, k);
         let can_play = self.idx.is_some();
         ui.spacing_mut().item_spacing.x = 6.0;
         ui.horizontal(|ui| {
-            if icons::icon_button(ui, icons::Icon::Previous, t(Key::Previous), false, can_play).on_hover_text(t(Key::Previous)).clicked() {
+            if icons::icon_button(ui, icons::Icon::Previous, tr("Previous"), false, can_play).on_hover_text(tr("Previous")).clicked() {
                 self.play_prev();
             }
-            let (icon, hover) = if self.transport.is_playing() { (icons::Icon::Pause, t(Key::Pause)) } else { (icons::Icon::Play, t(Key::Play)) };
+            let (icon, hover) = if self.transport.is_playing() { (icons::Icon::Pause, tr("Pause")) } else { (icons::Icon::Play, tr("Play")) };
             if icons::icon_button(ui, icon, hover, false, can_play).on_hover_text(hover).clicked() {
                 self.toggle_play();
             }
-            if icons::icon_button(ui, icons::Icon::Stop, t(Key::Stop), false, can_play).on_hover_text(t(Key::Stop)).clicked() {
+            if icons::icon_button(ui, icons::Icon::Stop, tr("Stop"), false, can_play).on_hover_text(tr("Stop")).clicked() {
                 self.stop_playback();
             }
-            if icons::icon_button(ui, icons::Icon::Next, t(Key::Next), false, can_play).on_hover_text(t(Key::Next)).clicked() {
+            if icons::icon_button(ui, icons::Icon::Next, tr("Next"), false, can_play).on_hover_text(tr("Next")).clicked() {
                 self.play_next();
             }
             ui.add_space(10.0);
             // Relógio em fonte de largura fixa: o tempo não "pula" a cada segundo.
             ui.label(egui::RichText::new(format!("{:>8} / {:>8}", fmt_time(self.position), fmt_time(self.duration))).monospace());
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let (icon, hover) = if self.muted { (icons::Icon::Muted, t(Key::Unmute)) } else { (icons::Icon::Volume, t(Key::Mute)) };
+                let (icon, hover) = if self.muted { (icons::Icon::Muted, tr("Unmute (M)")) } else { (icons::Icon::Volume, tr("Mute (M)")) };
                 if icons::icon_button(ui, icon, hover, self.muted, true).on_hover_text(hover).clicked() {
                     self.toggle_mute();
                 }
@@ -1199,7 +1196,7 @@ impl PlayerApp {
                 let reserved = trailing * (icons::BUTTON.x + ui.spacing().item_spacing.x) + 4.0;
                 ui.spacing_mut().slider_width = (ui.available_width() - reserved).clamp(40.0, 96.0);
                 let volume =
-                    ui.add(egui::Slider::new(&mut self.volume, 0.0..=100.0).show_value(false).trailing_fill(true)).on_hover_text(t(Key::Volume));
+                    ui.add(egui::Slider::new(&mut self.volume, 0.0..=100.0).show_value(false).trailing_fill(true)).on_hover_text(tr("Volume"));
                 if volume.changed() {
                     self.apply_volume();
                 }
@@ -1207,15 +1204,15 @@ impl PlayerApp {
                     self.save_prefs();
                 }
                 let (icon, hover) = if self.fullscreen {
-                    (icons::Icon::ExitFullscreen, t(Key::ExitFullscreen))
+                    (icons::Icon::ExitFullscreen, tr("Exit fullscreen (F)"))
                 } else {
-                    (icons::Icon::Fullscreen, t(Key::Fullscreen))
+                    (icons::Icon::Fullscreen, tr("Fullscreen (F)"))
                 };
                 if icons::icon_button(ui, icon, hover, self.fullscreen, true).on_hover_text(hover).clicked() {
                     self.toggle_fullscreen(ui.ctx());
                 }
                 if self.video.is_some() {
-                    if icons::icon_button(ui, icons::Icon::Rotate, t(Key::Rotate), false, true).on_hover_text(t(Key::Rotate)).clicked() {
+                    if icons::icon_button(ui, icons::Icon::Rotate, tr("Rotate"), false, true).on_hover_text(tr("Rotate")).clicked() {
                         self.rotate(ui.ctx(), 1);
                     }
                     // A legenda é um grupo próprio (não da janela): respiro
@@ -1224,17 +1221,17 @@ impl PlayerApp {
                     let cc_on = self.subtitles_on && self.subtitles.is_some();
                     let cc_hover = match (self.subtitles.as_ref(), &self.subtitle_source) {
                         (Some(_), SubtitleSource::Embedded { language, codec }) => {
-                            let mut hover = format!("{}\n{} · {language} · {codec}", t(Key::Subtitles), t(Key::SubtitleEmbedded));
+                            let mut hover = format!("{}\n{} · {language} · {codec}", tr("Subtitles (S)"), tr("embedded"));
                             if self.embedded.len() > 1 {
                                 hover.push('\n');
-                                hover.push_str(t(Key::SubtitleTrack));
+                                hover.push_str(tr("Subtitle track (C)"));
                             }
                             hover
                         }
-                        (Some(subs), _) => format!("{}\n{}", t(Key::Subtitles), subs.path),
-                        (None, _) => t(Key::Subtitles).to_owned(),
+                        (Some(subs), _) => format!("{}\n{}", tr("Subtitles (S)"), subs.path),
+                        (None, _) => tr("Subtitles (S)").to_owned(),
                     };
-                    if icons::icon_button(ui, icons::Icon::Subtitles, t(Key::Subtitles), cc_on, self.subtitles.is_some())
+                    if icons::icon_button(ui, icons::Icon::Subtitles, tr("Subtitles (S)"), cc_on, self.subtitles.is_some())
                         .on_hover_text(cc_hover)
                         .clicked()
                     {
@@ -1271,8 +1268,8 @@ impl PlayerApp {
         // dela (passado o ponto, não há para onde voltar).
         if let Some(point) = self.resume_point() {
             ui.add_space(2.0);
-            let hover = i18n::t(lang, Key::ResumeAt).replace("{time}", &fmt_time(point));
-            if ghost(ui, t(Key::ResumePosition)).on_hover_text(hover).clicked() {
+            let hover = tr_fmt("Resume from {time}", &[("time", &fmt_time(point))]);
+            if ghost(ui, tr("Resume from last position")).on_hover_text(hover).clicked() {
                 self.resume_playback(point);
             }
         }
@@ -1289,15 +1286,14 @@ impl PlayerApp {
 
     /// Mensagem i18n do tipo de erro (o detalhe técnico vai só pro stderr).
     fn error_text(&self, kind: engine::ErrorKind) -> &'static str {
-        let key = match kind {
-            engine::ErrorKind::NoDevice => Key::ErrorNoOutputDevice,
-            engine::ErrorKind::Open => Key::ErrorOpenFailed,
-            engine::ErrorKind::Decode => Key::ErrorDecodeFailed,
-            engine::ErrorKind::Seek => Key::ErrorSeekUnsupported,
-            engine::ErrorKind::TooLarge => Key::ErrorVideoTooLarge,
-            engine::ErrorKind::Engine => Key::ErrorEngineStopped,
-        };
-        i18n::t(self.cfg.lang, key)
+        match kind {
+            engine::ErrorKind::NoDevice => tr("No audio output device"),
+            engine::ErrorKind::Open => tr("Could not open this file"),
+            engine::ErrorKind::Decode => tr("Decoding failed"),
+            engine::ErrorKind::Seek => tr("This file cannot be seeked"),
+            engine::ErrorKind::TooLarge => tr("This video is too large to play (over 8K)"),
+            engine::ErrorKind::Engine => tr("The audio engine stopped"),
+        }
     }
 
     /// Verifica atualizações agora (botão "Verificar atualizações").
@@ -1336,7 +1332,7 @@ impl PlayerApp {
         // Log automático: pressão de memória (amostra a cada 5 s).
         self.session.check_rss();
         // Update (craft_update): bombeia o check/instalação que rodam fora
-        // da UI thread (mesmo desenho do Local-Keys).
+        // da UI thread.
         self.updater.tick(ctx);
         // Seletor nativo (src/pickers.rs): consome a resposta que chegou da
         // thread (ela acorda este frame com request_repaint).
@@ -1412,9 +1408,6 @@ impl PlayerApp {
             resume::save(&self.resume);
         }
 
-        let lang = self.cfg.lang;
-        let t = |k: Key| i18n::t(lang, k);
-
         // Check pedido ("Verificar atualizações"): nada encontrado/erro vira
         // linha de status; release nova abre o prompt do updater lá embaixo.
         match self.updater.status().clone() {
@@ -1427,7 +1420,7 @@ impl PlayerApp {
             }
             _ if self.settings_open => {}
             craft_update::updater::Status::UpToDate => {
-                self.status = t(Key::UpToDate).into();
+                self.status = tr("You are on the newest version.").into();
                 self.status_warn = false;
                 self.updater.dismiss_status();
             }
@@ -1546,17 +1539,17 @@ impl PlayerApp {
             }
             let shown = panel.show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.strong(t(Key::Items));
+                    ui.strong(tr("Items"));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.button(format!("+ {}", t(Key::AddFile))).clicked() {
+                        if ui.button(format!("+ {}", tr("Add file"))).clicked() {
                             // Seletor nativo; a resposta chega num frame
                             // posterior (src/pickers.rs). Cancelar = silêncio.
                             self.add_file(ui.ctx());
                         }
-                        if ui.button(format!("+ {}", t(Key::AddFolder))).clicked() {
+                        if ui.button(format!("+ {}", tr("Add folder"))).clicked() {
                             self.add_folder(ui.ctx());
                         }
-                        if ui.add_enabled(!self.playlist.files.is_empty(), egui::Button::new(t(Key::Clear))).clicked() {
+                        if ui.add_enabled(!self.playlist.files.is_empty(), egui::Button::new(tr("Clear"))).clicked() {
                             self.clear_playlist();
                         }
                     });
@@ -1611,10 +1604,10 @@ impl PlayerApp {
                     if self.idx.is_some() {
                         ui.vertical(|ui| {
                             ui.label(egui::RichText::new(&self.now).heading());
-                            ui.label(egui::RichText::new(t(Key::AudioOnlyHint)).weak());
+                            ui.label(egui::RichText::new(tr("Audio only")).weak());
                         });
                     } else {
-                        ui.label(egui::RichText::new(t(Key::DragMediaHere)).weak());
+                        ui.label(egui::RichText::new(tr("Drag media here or pick from the playlist")).weak());
                     }
                 });
             }
@@ -1665,7 +1658,10 @@ impl eframe::App for PlayerApp {
     }
 }
 
-// ── diálogos (mesmo desenho do Local-Keys) ───────────────────────────────
+// ── botões de linha ──────────────────────────────────────────────────────
+
+/// Quanto do texto do tema entra no texto apagado dos ghost buttons.
+const MUTED_ALPHA: f32 = 0.7;
 
 /// Cores derivadas do tema vigente, pro que sobrou de diálogo: os ghost
 /// buttons.
@@ -1684,7 +1680,7 @@ impl Skin {
     fn from_visuals(v: &egui::Visuals) -> Self {
         let text = v.override_text_color.unwrap_or(v.widgets.noninteractive.fg_stroke.color);
         Self {
-            muted: text.gamma_multiply(0.6),
+            muted: text.gamma_multiply(MUTED_ALPHA),
             hover: if v.dark_mode { egui::Color32::from_white_alpha(18) } else { egui::Color32::from_black_alpha(14) },
         }
     }

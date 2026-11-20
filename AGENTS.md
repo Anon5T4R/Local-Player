@@ -21,7 +21,7 @@ processo externo de playback.
   está frio ou feito, mantém durante iteração ativa); fora dele, `cargo clean` ao terminar. Builds pesados são do CI.
 
 ## Estrutura
-- `src/` — app single-crate; `src/engine/` é o motor de áudio da fase 2 (thread
+- `src/` — app single-crate (`i18n.rs`, `prefs.rs`, `theme.rs`: idioma, preferências e tema do app); `src/engine/` é o motor de áudio da fase 2 (thread
   própria: decode symphonia/filmcraft, ring SPSC e saída cpal); `src/pickers.rs`:
   seletor nativo async via rfd + pollster (portal XDG no Linux)
 - `icons/` — ícones do app (só `icon.png` 128×128; o PNG mestre maior ainda está pendente)

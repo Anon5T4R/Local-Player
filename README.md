@@ -54,7 +54,7 @@ Assets de cada release em
   (caminhos via args).
 - **Autoupdate** via `craft-update`: check no GitHub da própria release
   (Windows: substitui o MSI/portable; Linux: AppImage/tar.gz).
-- **Temas light/dark e i18n PT/EN/ES** comuns da suíte (crate `lab-ui`).
+- **Tema Automático/Claro/Escuro e idiomas EN/PT-BR/ES** (`src/theme.rs`, `src/i18n.rs`), no padrão da suíte.
 
 ## Atalhos
 
@@ -164,7 +164,7 @@ Windows. O workspace do vendor do FilmCraft é fechado em
 ## Arquitetura (alvo)
 
 ```
-UI (egui/lab-ui, portada do local-player)
+UI (egui, portada do local-player)
  └─ engine thread: demux → decode (filmcraft-codecs) → frame ring
       ├─ vídeo: YUV → textura wgpu pintada no CentralPanel do egui
       ├─ legenda: cue ativa pelo relógio mestre → texto da egui sobre o vídeo

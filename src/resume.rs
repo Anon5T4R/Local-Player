@@ -52,7 +52,7 @@ impl Default for Prefs {
 const MAX_ENTRIES: usize = 200;
 
 fn dir() -> std::path::PathBuf {
-    lab_ui::config::config_dir("local-player-rs")
+    crate::prefs::config_dir("local-player-rs")
 }
 
 fn read_json<T: serde::de::DeserializeOwned>(name: &str) -> Option<T> {

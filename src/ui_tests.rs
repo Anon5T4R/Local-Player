@@ -4,14 +4,13 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
+use craft_icons::ThemeMode;
 use egui::accesskit::Role;
 use egui_kittest::kittest::Queryable;
 use egui_kittest::Harness;
-use lab_ui::config::Config;
-use lab_ui::i18n::Lang;
-use lab_ui::theme::Appearance;
 
-use crate::{metrics, PlayerApp};
+use crate::prefs::Prefs;
+use crate::{i18n, metrics, theme, PlayerApp};
 
 /// A largura de revisão "estreita": a da janela inicial do app (480), abaixo da qual a barra de controles de
 /// baixo já não foi desenhada para caber; a barra de cima é conferida também em 340.
@@ -46,9 +45,9 @@ fn scratch(name: &str) -> PathBuf {
     isolate().join(format!("{name}-{nanos}"))
 }
 
-fn app(name: &str, cfg: Config) -> PlayerApp {
+fn app(name: &str, prefs: Prefs) -> PlayerApp {
     isolate();
-    let mut app = PlayerApp::new(cfg, Vec::new(), None, Arc::new(metrics::Metrics::new()));
+    let mut app = PlayerApp::new(prefs, Vec::new(), None, Arc::new(metrics::Metrics::new()));
     app.config_file = scratch(name).join("config.json");
     // Sem a playlist que o João tem salva.
     app.playlist.files.clear();
@@ -57,8 +56,8 @@ fn app(name: &str, cfg: Config) -> PlayerApp {
 
 /// Um app com três faixas na playlist (a segunda selecionada, sem o motor tocar nada): os comandos de faixa
 /// ficam ligados e a barra mostra o nome do arquivo.
-fn app_with_tracks(name: &str, cfg: Config) -> PlayerApp {
-    let mut app = app(name, cfg);
+fn app_with_tracks(name: &str, prefs: Prefs) -> PlayerApp {
+    let mut app = app(name, prefs);
     app.playlist.files = ["C:/media/Episode 01.mkv", "C:/media/Episode 02 - A very long title for the bar.mkv", "C:/media/Episode 03.mkv"]
         .iter()
         .map(ToString::to_string)
@@ -79,7 +78,8 @@ fn harness_sized(app: PlayerApp, width: f32) -> Harness<'static, PlayerApp> {
         .build_ui_state(
             move |ui, app: &mut PlayerApp| {
                 egui_extras::install_image_loaders(ui.ctx());
-                lab_ui::theme::apply(ui.ctx(), app.cfg.theme);
+                i18n::set_language(&app.prefs.language);
+                theme::apply(ui.ctx(), app.prefs.mode());
                 app.frame(ui);
             },
             app,
@@ -152,17 +152,17 @@ fn shot(harness: &mut Harness<'_, PlayerApp>, name: &str) {
 #[test]
 fn the_theme_button_cycles_the_three_modes() {
     let _serial = serial();
-    let mut harness = harness(app("theme", Config::default()));
-    assert_eq!(harness.state().cfg.theme, Appearance::System);
+    let mut harness = harness(app("theme", Prefs::new("en", ThemeMode::System)));
+    assert_eq!(harness.state().prefs.mode(), ThemeMode::System);
     click_bar(&mut harness, THEME);
-    assert_eq!(harness.state().cfg.theme, Appearance::Light);
+    assert_eq!(harness.state().prefs.mode(), ThemeMode::Light);
     click_bar(&mut harness, THEME);
-    assert_eq!(harness.state().cfg.theme, Appearance::Dark);
+    assert_eq!(harness.state().prefs.mode(), ThemeMode::Dark);
     click_bar(&mut harness, THEME);
-    assert_eq!(harness.state().cfg.theme, Appearance::System);
+    assert_eq!(harness.state().prefs.mode(), ThemeMode::System);
     // Cada troca foi gravada: o arquivo de teste (nunca o real) guarda o modo atual.
-    let saved = lab_ui::config::load_from(&harness.state().config_file);
-    assert_eq!(saved.theme, Appearance::System);
+    let saved = Prefs::load_from(&harness.state().config_file);
+    assert_eq!(saved.mode(), ThemeMode::System);
 }
 
 /// Uma preferência de tema gravada por versões antigas (id que a casca não conhece) abre no Automático.
@@ -173,16 +173,16 @@ fn an_old_theme_id_falls_back_to_automatic() {
     std::fs::create_dir_all(&dir).expect("temp dir");
     let file = dir.join("config.json");
     std::fs::write(&file, r#"{"theme":"PunkPrincess","lang":"En"}"#).expect("write config");
-    let cfg = lab_ui::config::load_from(&file);
-    assert_eq!(cfg.theme, Appearance::System);
-    assert_eq!(cfg.lang, Lang::En);
+    let prefs = Prefs::load_from(&file);
+    assert_eq!(prefs.mode(), ThemeMode::System);
+    assert_eq!(prefs.language, "en");
 }
 
 /// A engrenagem abre as Configurações; lá o idioma troca e o tema vira pelas três opções.
 #[test]
 fn the_gear_opens_settings_with_language_and_theme() {
     let _serial = serial();
-    let mut harness = harness(app("gear", Config { theme: Appearance::Dark, lang: Lang::En }));
+    let mut harness = harness(app("gear", Prefs::new("en", ThemeMode::Dark)));
     click_bar(&mut harness, GEAR);
     assert!(harness.state().settings_open);
     harness.get_by_label("About Local Player");
@@ -190,16 +190,16 @@ fn the_gear_opens_settings_with_language_and_theme() {
     shot(&mut harness, "settings-dark");
     harness.get_by_label("Light").click();
     harness.run_steps(2);
-    assert_eq!(harness.state().cfg.theme, Appearance::Light);
+    assert_eq!(harness.state().prefs.mode(), ThemeMode::Light);
     harness.get_by_label("Automatic").click();
     harness.run_steps(2);
-    assert_eq!(harness.state().cfg.theme, Appearance::System);
+    assert_eq!(harness.state().prefs.mode(), ThemeMode::System);
     // O idioma sai da barra e mora aqui: o combo troca para o português.
     harness.get_by_role(Role::ComboBox).click();
     harness.run_steps(2);
-    harness.get_by_label("Português").click();
+    harness.get_by_label("Português (Brasil)").click();
     harness.run_steps(2);
-    assert_eq!(harness.state().cfg.lang, Lang::Pt);
+    assert_eq!(harness.state().prefs.language, "pt-br");
     harness.get_by_label("Sobre o Local Player");
     // Esc fecha a janela.
     press(&mut harness, egui::Key::Escape, egui::Modifiers::NONE);
@@ -210,7 +210,7 @@ fn the_gear_opens_settings_with_language_and_theme() {
 #[test]
 fn the_search_icon_and_ctrl_k_open_the_palette_and_run_a_command() {
     let _serial = serial();
-    let mut harness = harness(app("palette", Config { theme: Appearance::Light, lang: Lang::En }));
+    let mut harness = harness(app("palette", Prefs::new("en", ThemeMode::Light)));
     assert!(!harness.state().palette.is_open());
     click_bar(&mut harness, SEARCH);
     assert!(harness.state().palette.is_open());
@@ -226,7 +226,7 @@ fn the_search_icon_and_ctrl_k_open_the_palette_and_run_a_command() {
 #[test]
 fn palette_commands_change_volume_and_mute() {
     let _serial = serial();
-    let mut harness = harness(app_with_tracks("volume", Config { theme: Appearance::Dark, lang: Lang::En }));
+    let mut harness = harness(app_with_tracks("volume", Prefs::new("en", ThemeMode::Dark)));
     harness.state_mut().volume = 50.0;
     run_palette(&mut harness, "volume down");
     assert_eq!(harness.state().volume, 40.0);
@@ -244,7 +244,7 @@ fn palette_commands_change_volume_and_mute() {
 #[test]
 fn track_and_video_commands_follow_the_player_state() {
     let _serial = serial();
-    let empty = app("empty", Config::default());
+    let empty = app("empty", Prefs::new("en", ThemeMode::System));
     let off = |app: &PlayerApp, id: &str| app.commands().into_iter().find(|c| c.id == id).map(|c| !c.enabled).unwrap_or_else(|| panic!("{id}"));
     for id in ["playback.toggle", "playback.stop", "playback.previous", "playback.next", "playback.back", "playback.forward"] {
         assert!(off(&empty, id), "{id} deveria estar desligado sem faixa");
@@ -257,7 +257,7 @@ fn track_and_video_commands_follow_the_player_state() {
     {
         assert!(!off(&empty, id), "{id} deveria estar ligado");
     }
-    let tracks = app_with_tracks("tracks", Config::default());
+    let tracks = app_with_tracks("tracks", Prefs::new("en", ThemeMode::System));
     for id in ["playback.toggle", "playback.stop", "playback.previous", "playback.next", "playback.back", "playback.forward", "playlist.clear"] {
         assert!(!off(&tracks, id), "{id} deveria estar ligado com faixa");
     }
@@ -269,7 +269,7 @@ fn track_and_video_commands_follow_the_player_state() {
 #[test]
 fn exit_in_the_palette_asks_to_quit() {
     let _serial = serial();
-    let mut harness = harness(app("exit", Config { theme: Appearance::Dark, lang: Lang::En }));
+    let mut harness = harness(app("exit", Prefs::new("en", ThemeMode::Dark)));
     run_palette(&mut harness, "exit");
     assert!(harness.state().quit);
 }
@@ -278,7 +278,7 @@ fn exit_in_the_palette_asks_to_quit() {
 #[test]
 fn player_keys_still_work_with_the_palette_closed() {
     let _serial = serial();
-    let mut harness = harness(app_with_tracks("keys", Config { theme: Appearance::Light, lang: Lang::En }));
+    let mut harness = harness(app_with_tracks("keys", Prefs::new("en", ThemeMode::Light)));
     harness.run_steps(2);
     press(&mut harness, egui::Key::M, egui::Modifiers::NONE);
     assert!(harness.state().muted);
@@ -291,7 +291,7 @@ fn player_keys_still_work_with_the_palette_closed() {
 #[test]
 fn player_keys_stay_quiet_while_an_overlay_is_open() {
     let _serial = serial();
-    let mut harness = harness(app_with_tracks("quiet", Config { theme: Appearance::Light, lang: Lang::En }));
+    let mut harness = harness(app_with_tracks("quiet", Prefs::new("en", ThemeMode::Light)));
     harness.run_steps(2);
     click_bar(&mut harness, SEARCH);
     assert!(harness.state().palette.is_open());
@@ -313,7 +313,7 @@ fn player_keys_stay_quiet_while_an_overlay_is_open() {
 #[test]
 fn escape_closes_settings_without_leaving_fullscreen() {
     let _serial = serial();
-    let mut harness = harness(app_with_tracks("fullscreen", Config { theme: Appearance::Dark, lang: Lang::En }));
+    let mut harness = harness(app_with_tracks("fullscreen", Prefs::new("en", ThemeMode::Dark)));
     harness.state_mut().fullscreen = true;
     run_palette(&mut harness, "settings");
     assert!(harness.state().settings_open);
@@ -327,7 +327,7 @@ fn escape_closes_settings_without_leaving_fullscreen() {
 fn the_top_bar_does_not_overlap_at_any_width() {
     let _serial = serial();
     for width in [340.0_f32, 400.0, 480.0, 620.0, 800.0] {
-        let mut harness = harness_sized(app_with_tracks("bar", Config { theme: Appearance::Light, lang: Lang::Pt }), width);
+        let mut harness = harness_sized(app_with_tracks("bar", Prefs::new("pt-br", ThemeMode::Light)), width);
         harness.run_steps(2);
         let rects = bar_buttons(&harness);
         assert_eq!(rects.len(), 3, "{width}: lupa, tema e engrenagem: {rects:?}");
@@ -345,8 +345,8 @@ fn the_top_bar_does_not_overlap_at_any_width() {
 fn review_shots() {
     let _serial = serial();
     for (width, label) in [(NARROW, "480"), (1100.0, "1100")] {
-        for (appearance, name) in [(Appearance::Light, "light"), (Appearance::Dark, "dark")] {
-            let mut harness = harness_sized(app_with_tracks("shots", Config { theme: appearance, lang: Lang::En }), width);
+        for (mode, name) in [(ThemeMode::Light, "light"), (ThemeMode::Dark, "dark")] {
+            let mut harness = harness_sized(app_with_tracks("shots", Prefs::new("en", mode)), width);
             harness.run_steps(2);
             shot(&mut harness, &format!("bar-{name}-{label}"));
             click_bar(&mut harness, GEAR);
@@ -357,7 +357,7 @@ fn review_shots() {
         }
     }
     // A barra na largura mínima útil (340) também vai para a revisão.
-    let mut harness = harness_sized(app_with_tracks("shots-340", Config { theme: Appearance::Light, lang: Lang::En }), 340.0);
+    let mut harness = harness_sized(app_with_tracks("shots-340", Prefs::new("en", ThemeMode::Light)), 340.0);
     harness.run_steps(2);
     shot(&mut harness, "bar-light-340");
 }

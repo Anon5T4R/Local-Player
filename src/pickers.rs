@@ -2,11 +2,11 @@
 //!
 //! Molde: `local-pdf/crates/ui-egui/src/pickers.rs` (lá os comentários
 //! explicam o porquê do `AsyncFileDialog`: modal síncrono re-entra no handler
-//! do winit e aborta a app). Versão mínima dos pilotos: um seletor por vez,
+//! do winit e aborta a app). Versão mínima: um seletor por vez,
 //! resposta drenada no frame seguinte (`take` junto do `updater.tick`).
 //!
 //! Backends do rfd 0.17 (defaults): Windows = diálogo nativo; Linux = portal
-//! XDG via zbus (Rust puro, fallback Zenity). macOS não é alvo dos pilotos;
+//! XDG via zbus (Rust puro, fallback Zenity). macOS não é alvo;
 //! se um dia for, criar o future na main thread antes de spawnar (ver
 //! local-pdf).
 

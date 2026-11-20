@@ -1203,7 +1203,7 @@ impl PlayerApp {
                     .inner
                     .on_hover_text(tr("Volume"));
                 // O nome do controle para leitores de tela (a dica só aparece com o mouse).
-                let volume_now = f64::from(self.volume);
+                let volume_now = self.volume;
                 volume.widget_info(|| egui::WidgetInfo::slider(true, volume_now, tr("Volume")));
                 if volume.changed() {
                     self.apply_volume();
@@ -1263,7 +1263,7 @@ impl PlayerApp {
                 ui.add_enabled(dur > 0.0, egui::Slider::new(&mut value, 0.0..=dur.max(0.001)).show_value(false).trailing_fill(true))
             })
             .inner;
-        bar.widget_info(|| egui::WidgetInfo::slider(dur > 0.0, f64::from(value), tr("Seek")));
+        bar.widget_info(|| egui::WidgetInfo::slider(dur > 0.0, value, tr("Seek")));
         if bar.drag_started() {
             self.scrubbing = true;
         }

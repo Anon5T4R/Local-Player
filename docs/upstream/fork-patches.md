@@ -10,7 +10,7 @@ O fork não é um repo git: é uma cópia do upstream dentro de `libs/filmcraft`
 recortado. Comparar byte a byte dava 424 arquivos "diferentes" — quase tudo reflow (vírgula final,
 quebra de linha). O método que vale:
 
-1. `git archive 8fda2f2` dos 28 crates vendorizados (bytes exatos do blob, LF);
+1. `git archive 8fda2f2` dos crates vendorizados (bytes exatos do blob, LF);
 2. normalização de espaços + pontuação estrutural (`,` `;` `{}` `()`) nos dois lados e comparação;
 3. `git diff --word-diff` de cada arquivo que sobrou, para ler o diff de verdade.
 
@@ -73,7 +73,7 @@ Existing behaviour is unchanged when the setter is never called.
 
 O `Cargo.toml` do fork é o do app, não o do upstream:
 
-- `members` recortado para os 28 crates que o player usa (fora projeto, engine, ui-egui, gpu,
+- `members` recortado para os crates que o player usa (fora projeto, engine, ui-egui, gpu,
   export, captions, cfb, geom, edit...);
 - deps internas pinadas com `version = "0.13.0"` além do `path` — o `cargo-deny` do app recusa
   path dep sem versão (wildcard);
@@ -84,13 +84,15 @@ Nada disso é mudança de código upstream: é empacotamento do vendor. **Não s
 
 ## Divergência 3 — decoder de vídeo do `platform` recortado (`crates/hwdec`, crate `filmcraft-hwdec`)
 
-**O que muda.** O decoder de vídeo por hardware do Windows saiu de `filmcraft-platform` como um
+**O que muda.** O decoder de vídeo por hardware (Media Foundation no Windows,
+VA-API e NVDEC no Linux) saiu de `filmcraft-platform` como um
 crate próprio no fork:
 
 - copiados sem mudança de comportamento: `media_foundation/{mod,gpu,mft,stream}.rs`, `annexb.rs`,
   `biplanar.rs`, `hybrid.rs` (o upstream inteiro, menos `cursor`/encoders);
-- `lib.rs` reescrito só com o registro de decoder (`register`/`registered`/`available`) e a factory
-  de Media Foundation — sem NVENC, VideoToolbox encode, VA-API, NVDEC nem as probes de export;
+- `lib.rs` reescrito só com o registro de decoder (`register`/`registered`/`available`) e as
+  factories por plataforma — Media Foundation no Windows, VA-API e NVDEC no Linux — sem NVENC,
+  VideoToolbox (macOS) nem as probes de export;
 - `codec.rs` novo: família/bit depth/decisão puros (testáveis sem GPU) e o `probe()` do `--probe`,
   que responde "provável" sem criar decoder MFT (só enumera o MFT e consulta o perfil DXVA na GPU);
 - `media_foundation::supports` + `mft::has_decoder` novos para isso.
@@ -101,11 +103,10 @@ hardware e as probes de export (formatos/HDR). Um player só precisa do decoder 
 resto é arrastar o editor. O recorte também deixa o SW pure-Rust como fundação explícita: o crate
 não depende de nada do app.
 
-**Estado atual (fork).** `register()` no Windows registra a factory de Media Foundation e liga o
-`set_hw_backend("Media Foundation")`; em qualquer outra plataforma devolve
-`Availability::Unavailable` e o decode fica 100% software. Promover Linux (VA-API/NVDEC) e macOS
-(VideoToolbox) é acrescentar o módulo `cfg` correspondente e o braço no `register()`, como no
-upstream.
+**Estado atual (fork).** `register()` registra a factory da plataforma: no Windows,
+Media Foundation/DXVA (H.264, HEVC, VP9, AV1); no Linux, VA-API (`vaapi`) e NVDEC
+(`nvdec`), ambos H.264/HEVC. macOS ainda não — VideoToolbox é a pendência. Em
+qualquer plataforma o fallback SW pure-Rust segue transparente (`HybridDecoder`).
 
 **Proposta de upstream (não submetida).** Extrair `crates/platform` em dois: `filmcraft-hwdec`
 (decode: VideoToolbox / Media Foundation / VA-API / NVDEC + `hybrid`) e `filmcraft-platform`

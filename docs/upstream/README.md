@@ -1,53 +1,27 @@
 # Contribuições para o upstream `storytold/filmcraft`
 
-Este diretório guarda o que o Local Player mudou no FilmCraft vendorizado
-(`libs/filmcraft`) e os patches prontos para virar PR no repositório upstream.
-**Nada foi submetido** — é preparação.
+Patches do fork (`libs/filmcraft`) prontos para PR, gerados contra o snapshot
+`8fda2f2`. O detalhamento (método da comparação, caso de uso, texto de PR em
+inglês) está no `fork-patches.md`.
 
 | Arquivo | O que é |
 | --- | --- |
-| `fork-patches.md` | todas as divergências do vendor vs snapshot `8fda2f2`, método da comparação, caso de uso e texto de PR em inglês |
 | `0001-gop-host-frame-cache-budget.patch` | teto do cache de frames configurável pelo host (`crates/codecs/src/gop.rs`), com teste |
+| `0002-mp4-leading-empty-edit.patch` | ignora o empty edit inicial que um corte por stream-copy deixa no `elst` (`crates/codecs/src/mp4.rs`), com teste |
 
-## O que é patch e o que não é
+O `Cargo.toml` do vendor (workspace recortado, deps internas pinadas) é
+empacotamento deste repo e **não** deve ser submetido — ver divergência 2 do
+`fork-patches.md`.
 
-Só o `gop.rs` é contribuição de código. O `Cargo.toml` do vendor (workspace recortado, deps
-internas pinadas, `craft-*` apontando para o `craft-libs` do app) é empacotamento deste repo e
-**não** deve ser submetido. O detalhamento está em `fork-patches.md`.
+**Estado:** os dois patches viraram PR no upstream (#4494 e #4534) e foram
+fechados sem merge em 2026-11-09. Decisão do João na mesma data: **sem novos
+PRs ao filmcraft** — o que o fork carrega fica documentado no `fork-patches.md`.
 
-## Como submeter (quando o João decidir)
+Notas de aplicação (se um dia voltarem a valer):
 
-```bash
-# 1. Fork/branch no GitHub (conta do storytold) e clone
-git clone https://github.com/storytold/filmcraft
-cd filmcraft
-git switch -c feat/gop-host-frame-cache-budget 8fda2f2   # commit base do vendor
-
-# 2. Aplicar o patch (LF; o checkout Linux do CI aplica direto)
-git apply /caminho/para/0001-gop-host-frame-cache-budget.patch
-
-# 3. Verificar como eles exigem
-cargo fmt --check
-cargo clippy -p filmcraft-codecs --all-targets -- -D warnings
-cargo test -p filmcraft-codecs gop
-
-# 4. Commit + push + PR
-git add crates/codecs/src/gop.rs
-git commit -m "codecs: let the host cap the GopCache frame budget"
-git push -u origin feat/gop-host-frame-cache-budget
-gh pr create --repo storytold/filmcraft --title "codecs: let the host cap the GopCache frame budget" --body-file pr-body.md
-```
-
-O texto de PR está no `fork-patches.md` (bloco ```), pronto para um `pr-body.md`.
-
-Notas de aplicação:
-
-- O patch foi gerado contra o blob do `8fda2f2` e validado com `git apply --check`. Se o upstream
-  já tiver avançado em `gop.rs`, rebase manual nos hunks (são cinco, pequenos: static/setter,
-  campo, `new()`, `cache_budget()`, teste).
-- Checkout Windows com `core.autocrlf=true` recusa o patch por CRLF/LF: aplique em WSL, num
-  checkout com `core.autocrlf=false` ou no Linux. O conteúdo do patch é LF, como manda o repo
-  deles.
-- Depois de mergeado, o fork deste app pode largar o patch: `libs/filmcraft` volta a ser cópia
-  fiel do upstream + `set_frame_cache_budget` chamado em `src/engine/mod.rs`
-  (`configure_frame_cache`).
+- Os patches foram gerados contra o blob do `8fda2f2` e validados com
+  `git apply --check`. Se o upstream já tiver avançado nos arquivos, rebase
+  manual nos hunks.
+- Checkout Windows com `core.autocrlf=true` recusa os patches por CRLF/LF:
+  aplique em WSL, num checkout com `core.autocrlf=false` ou no Linux. O
+  conteúdo dos patches é LF, como manda o repo deles.

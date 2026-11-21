@@ -1,18 +1,9 @@
 # Local Player
 
-**Player de mídia 100% local e offline em Rust puro.** Candidato a sucessor do
-[Local-Player](https://github.com/Anon5T4R/Local-Player) (que roda o mpv como
-processo externo): aqui o demux e o decode são crates nossas — o
-[FilmCraft](https://github.com/storytold/filmcraft) vendored em `libs/filmcraft`
-mais o bootstrap de áudio do symphonia. Sem processo externo, sem download em
-runtime, sem telemetria.
-
-> **Estado: fase 4 — legenda e polimento (pré-release de teste v0.1.0).**
-> O app abre, gerencia a playlist (arquivo, pasta, arrastar-e-soltar, "abrir
-> com"), tema e i18n da suíte, se auto-atualiza, **toca áudio e vídeo de
-> verdade** e mostra **legenda externa** por cima da imagem. O motor escolhe o
-> frame pelo relógio mestre (áudio ou parede), faz seek GOP-aware e respeita
-> pausa/rotação/fullscreen.
+**Player de mídia 100% local e offline em Rust puro.** O demux e o decode são
+crates nossas — o [FilmCraft](https://github.com/storytold/filmcraft) vendored
+em `libs/filmcraft` mais o bootstrap de áudio do symphonia. Sem processo
+externo, sem download em runtime, sem telemetria.
 
 ## Download
 
@@ -48,6 +39,9 @@ Assets de cada release em
   ignorados, `<c.classe>` removido. ASS/SSA: estilo do script (fonte, tamanho,
   cores, negrito/itálico, os nove alinhamentos, margens) e overrides comuns
   (`\an`, `\i`, `\b`, `\fs`, `\c`, `\N`); `\pos`/karaokê/desenho ficam fora.
+- **Legendas embutidas:** faixas do próprio container — MKV (`S_TEXT/UTF8`,
+  `S_TEXT/ASS`, `S_TEXT/WEBVTT`) e MP4 (`tx3g`) — com auto-seleção pelo idioma
+  do app/sistema (externa vence embutida); a tecla `C` cicla as faixas.
 - **Playlist** persistente entre sessões: `+ arquivo` / `+ pasta` (multi-arquivo,
   a listagem roda fora da UI thread — pasta de rede não trava a janela) ou
   arraste os arquivos pra janela; "abrir com" no Explorer também funciona
@@ -55,6 +49,9 @@ Assets de cada release em
 - **Autoupdate** via `craft-update`: check no GitHub da própria release
   (Windows: substitui o MSI/portable; Linux: AppImage/tar.gz).
 - **Tema Automático/Claro/Escuro e idiomas EN/PT-BR/ES** (`src/theme.rs`, `src/i18n.rs`), no padrão da suíte.
+- **Casca da suíte** = `src/shell.rs` + craft-icons + craft-palette +
+  craft-desktop-theme (espelhos do local-libs); janela mínima de 480×360 — as
+  barras de controle foram desenhadas para 480.
 
 ## Atalhos
 
@@ -66,6 +63,7 @@ Assets de cada release em
 | R / Shift+R | gira 90° (horário / anti-horário) |
 | M | mute |
 | S | liga/desliga a legenda |
+| C | cicla as faixas de legenda embutida |
 | Z / X | atraso da legenda −0,5 s / +0,5 s (no overlay de status) |
 | D | overlay de estatísticas (decode/exibição/drops/upload/RSS/cache) |
 | Esc | sai da tela cheia |
@@ -161,7 +159,7 @@ O `Cargo.lock` está commitado; `build.rs` embute o `icon.ico` no binário do
 Windows. O workspace do vendor do FilmCraft é fechado em
 `libs/filmcraft/Cargo.toml`; `libs/` é `exclude` do workspace do app.
 
-## Arquitetura (alvo)
+## Arquitetura
 
 ```
 UI (egui, portada do local-player)

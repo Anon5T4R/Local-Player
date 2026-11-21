@@ -1,9 +1,9 @@
-# Sincronização com o upstream
+# Upstream
 
-Porta/rebrand da suíte Local: o main é nosso, o upstream é fonte de mudanças candidatas e nada entra sem revisão. Regras gerais em `docs/planos/licoes-de-porta.md` (dev-notes).
-
-## craft-update vendored: fork permanente da suíte (fora do sync)
-
-`libs/craft-libs/crates/update` está **fora do escopo** deste sync com o upstream. É um crate nosso, hospedado no `craft-libs` da suíte Local, e um **fork permanente consciente** do `craft-update` upstream — unificado nos 10 apps em 2026-11-13, com um diff de milhares de linhas contra `storytold/craft-libs/crates/update` (MSI context/migrate, pins do launcher, `offers_update`, `desktop_register`, catálogo único de apps). Nenhum diff de sync encaixa nele.
-
-Bugfix e feature vão **direto na fonte única** — repo `Anon5T4R/local-libs` (crate `crates/update`) — e daí são replicados para os apps pelo script de sincronização (`sync.ps1 -Mode push`, guarda de hash ×10; a cópia vendored aqui é espelho). Nunca edite a cópia local diretamente: o próximo sync sobrescreve. Contribuições ao upstream só via **Issue/PR manual**, em inglês, quando o problema também existir lá - mesma política do `UPSTREAM-CONTRIBUTIONS.md` do local-office. O restante do `craft-libs` segue o fluxo normal deste documento.
+- Base do fork: `storytold/filmcraft` **`8fda2f2`**, vendored em `libs/filmcraft`. As
+  divergências do vendor vivem em `docs/upstream/fork-patches.md`.
+- `craft-update` é espelho do local-libs (repo `Anon5T4R/local-libs`, crate
+  `crates/update`): nunca edite a cópia daqui — bugfix/feature vão na fonte e o
+  `sync.ps1` replica para os apps.
+- Menções a `storytold/*` são referência histórica e obrigação de licença; nada é lido
+  de `<root>/storytold` em build, teste ou release.

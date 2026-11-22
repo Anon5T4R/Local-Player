@@ -359,25 +359,47 @@ fn review_shots() {
 /// A largura mínima que a casca promete (a da barra de cima; a janela inicial é 480).
 const MINIMUM: f32 = 340.0;
 
-/// Todo nó da tela, em coordenadas do accesskit, dentro da janela de `width` pontos.
-fn assert_inside(harness: &Harness<'_, PlayerApp>, what: &str, width: f32) {
-    for node in harness.root().children_recursive() {
+/// Todo nó da tela, em coordenadas do accesskit, dentro da janela de `width`×`height` pontos.
+fn assert_inside(harness: &Harness<'_, PlayerApp>, what: &str, width: f32, height: f32) {
+    const TOL: f64 = 0.5;
+    let (w, h) = (f64::from(width), f64::from(height));
+    let nodes: Vec<_> = harness.root().children_recursive().collect();
+    // O corpo de um diálogo mais alto que a janela rola; o accesskit anuncia o conteúdo rolado
+    // sem recorte, então o que sai por baixo só é aceito antes da última barra vertical (as
+    // barras vêm depois do conteúdo e o rodapé depois delas): o que vier depois é casca e cabe.
+    let last_bar = nodes.iter().rposition(|node| {
+        let Some(rect) = node.accesskit_node().bounding_box() else { return false };
+        let vertical = rect.y1 - rect.y0 > rect.x1 - rect.x0;
+        node.accesskit_node().role() == Role::ScrollBar && vertical && rect.y0 >= -TOL && rect.y1 <= h + TOL
+    });
+    for (i, node) in nodes.iter().enumerate() {
         // O texto de um campo corre além da borda do próprio campo (o egui o recorta ao desenhar): vale o nó do campo.
         if node.accesskit_node().role() == Role::TextRun {
             continue;
         }
         let Some(rect) = node.accesskit_node().bounding_box() else { continue };
-        if rect.width() > 0.0 {
-            assert!(
-                rect.x0 >= -0.5 && rect.x1 <= f64::from(width) + 0.5,
-                "{what}: {:?} fora da janela de {width}: {rect:?}",
-                node.accesskit_node().role()
-            );
+        if rect.width() <= 0.0 {
+            continue;
         }
+        let role = node.accesskit_node().role();
+        let label = node.accesskit_node().label().unwrap_or_default();
+        assert!(rect.x0 >= -TOL && rect.x1 <= w + TOL, "{what}: {role:?} {label:?} fora da janela de {width}: {rect:?}");
+        assert!(rect.y0 >= -TOL, "{what}: {role:?} {label:?} acima da janela: {rect:?}");
+        if role == Role::ScrollBar {
+            assert!(rect.y1 <= h + TOL, "{what}: {role:?} abaixo da janela de {height}: {rect:?}");
+            continue;
+        }
+        if rect.y1 <= h + TOL {
+            continue;
+        }
+        let bar = last_bar.unwrap_or_else(|| panic!("{what}: {role:?} {label:?} abaixo da janela de {height}: {rect:?}"));
+        assert!(i < bar, "{what}: {role:?} {label:?} abaixo da janela, depois do rodapé: {rect:?}");
+        let bar = nodes[bar].accesskit_node().bounding_box().expect("a barra tem rect");
+        assert!(rect.x1 <= bar.x1 + TOL, "{what}: {role:?} {label:?} abaixo da janela, fora da coluna que rola: {rect:?}");
     }
 }
 
-/// Cada diálogo e janela do app cabe na largura mínima: nenhum nó passa da borda, com a playlist cheia.
+/// Cada diálogo e janela do app cabe na janela mínima: nenhum nó passa da borda, com a playlist cheia.
 #[test]
 fn every_dialog_fits_the_narrow_window() {
     let _serial = serial();
@@ -392,14 +414,16 @@ fn every_dialog_fits_the_narrow_window() {
             app.updater.offer(release);
         }),
     ];
+    // A altura mínima da janela (main.rs: `with_min_inner_size([480, 360])`).
+    const MINIMUM_HEIGHT: f32 = 360.0;
     for (name, open) in dialogs {
         for (language, mode) in [("pt-br", ThemeMode::Dark), ("es", ThemeMode::Light)] {
             let mut app = app_with_tracks("dialogs", Prefs::new(language, mode));
             open(&mut app);
-            let mut harness = harness_sized(app, MINIMUM, 640.0);
+            let mut harness = harness_sized(app, MINIMUM, MINIMUM_HEIGHT);
             harness.run_steps(6);
             shot(&mut harness, &format!("dialog-{name}-{language}-{MINIMUM}"));
-            assert_inside(&harness, &format!("{name}/{language}"), MINIMUM);
+            assert_inside(&harness, &format!("{name}/{language}"), MINIMUM, MINIMUM_HEIGHT);
         }
     }
 }
@@ -432,10 +456,12 @@ fn the_palette_fits_narrow_and_medium_windows() {
         click_bar(&mut harness, SEARCH);
         let rows: Vec<egui::Rect> = harness.get_all_by_role(Role::ListBoxOption).map(|node| node.rect()).collect();
         assert!(!rows.is_empty());
+        // A lista da paleta rola dentro dela: a coluna de cada linha é que tem de caber; a altura
+        // fica com o `assert_inside` (que aceita o conteúdo rolado e cobra a casca).
         for rect in &rows {
             assert!(rect.min.x >= 0.0 && rect.max.x <= width, "linha da paleta fora da janela de {width}: {rect:?}");
         }
-        assert_inside(&harness, "palette", width);
+        assert_inside(&harness, "palette", width, 640.0);
     }
 }
 
@@ -451,5 +477,5 @@ fn the_main_screen_with_long_names_fits_the_initial_window() {
     let mut harness = harness_sized(app, NARROW, 640.0);
     harness.run_steps(3);
     shot(&mut harness, "main-long-480");
-    assert_inside(&harness, "main", NARROW);
+    assert_inside(&harness, "main", NARROW, 640.0);
 }

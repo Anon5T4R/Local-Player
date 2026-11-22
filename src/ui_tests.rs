@@ -48,7 +48,7 @@ fn scratch(name: &str) -> PathBuf {
 
 fn app(name: &str, prefs: Prefs) -> PlayerApp {
     isolate();
-    let mut app = PlayerApp::new(prefs, Vec::new(), None, Arc::new(metrics::Metrics::new()));
+    let mut app = PlayerApp::new(prefs, Vec::new(), None, Arc::new(metrics::Metrics::new()), None, None);
     app.config_file = scratch(name).join("config.json");
     // Sem a playlist que o João tem salva.
     app.playlist.files.clear();

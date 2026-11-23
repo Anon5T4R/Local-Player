@@ -12,10 +12,12 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod automation;
 mod cli;
 mod engine;
 mod i18n;
 mod icons;
+mod live;
 mod metrics;
 mod pickers;
 mod prefs;
@@ -96,8 +98,41 @@ fn main() -> eframe::Result<()> {
     // decoders registrados primeiro; --probe/--bench também passam por aqui).
     let _ = engine::register_hwdec();
 
+    // Agent-native: `mcp`, `run` e `commands` saem antes do CLI de diagnóstico e da
+    // janela. O `--control PORT` e as raízes de automação saem dos args aqui.
+    if let Some(code) = automation::cli::run(&args) {
+        std::process::exit(code);
+    }
+    let launch = match automation::launch::parse(&args) {
+        Ok(launch) => launch,
+        Err(e) => {
+            eprintln!("local-player-rs: {e}");
+            std::process::exit(2);
+        }
+    };
+    let roots = match launch.roots.roots() {
+        Ok(roots) => roots,
+        Err(e) => {
+            eprintln!("local-player-rs: {e}");
+            std::process::exit(2);
+        }
+    };
+    // O canal de controle (agentes, scripts): escuta em loopback antes da janela,
+    // para uma porta ocupada falhar aqui e não no meio do uso.
+    let control = match launch.control.map(automation::control::Control::start) {
+        None => None,
+        Some(Ok(control)) => {
+            eprintln!("local-player-rs: control channel on 127.0.0.1:{}", control.port());
+            Some(control)
+        }
+        Some(Err(e)) => {
+            eprintln!("local-player-rs: {e}");
+            std::process::exit(1);
+        }
+    };
+
     // Diagnóstico sem janela: --probe / --bench / --help / --version saem aqui.
-    if let Some(code) = cli::run(&args) {
+    if let Some(code) = cli::run(&launch.args) {
         std::process::exit(code);
     }
 
@@ -163,7 +198,7 @@ fn main() -> eframe::Result<()> {
             theme::apply(&cc.egui_ctx, prefs.mode());
             // Linux: a escolha clara/escura do desktop, que o winit não informa.
             craft_desktop_theme::follow(&cc.egui_ctx);
-            let mut app = PlayerApp::new(prefs, args, cc.wgpu_render_state.as_ref(), metrics);
+            let mut app = PlayerApp::new(prefs, launch.args, cc.wgpu_render_state.as_ref(), metrics, control, roots);
             // Check de update no arranque: achou release nova, o prompt do
             // updater abre sozinho (craft_update::dialog).
             app.updater.check_at_start(&cc.egui_ctx);
@@ -322,10 +357,21 @@ struct PlayerApp {
     /// A falha do último check de atualização já entrou no log da sessão (com as Configurações abertas o
     /// resultado fica lá, e o log não pode repetir a linha a cada quadro).
     update_failure_logged: bool,
+    /// O canal de controle do `--control PORT` (agentes e scripts), quando o app foi iniciado com ele.
+    control: Option<automation::control::Control>,
+    /// As raízes de automação dadas com `--control` (nenhuma: nada é confinado).
+    roots: Option<craft_mcp::automation::Roots>,
 }
 
 impl PlayerApp {
-    fn new(prefs: Prefs, args: Vec<String>, render_state: Option<&eframe::egui_wgpu::RenderState>, metrics: Arc<metrics::Metrics>) -> Self {
+    fn new(
+        prefs: Prefs,
+        args: Vec<String>,
+        render_state: Option<&eframe::egui_wgpu::RenderState>,
+        metrics: Arc<metrics::Metrics>,
+        control: Option<automation::control::Control>,
+        roots: Option<craft_mcp::automation::Roots>,
+    ) -> Self {
         // "Abrir com": adiciona os arquivos de args na playlist e seleciona o
         // primeiro.
         let mut playlist = resume::load_playlist();
@@ -410,6 +456,8 @@ impl PlayerApp {
             config_file: prefs::config_dir(APP_ID).join("config.json"),
             quit: false,
             update_failure_logged: false,
+            control,
+            roots,
         };
         // // local-player-rs: provider TLS do update (100% Rust, caminho único).
         // Fica pendente no log e sai com a primeira linha da sessão.
@@ -1340,6 +1388,8 @@ impl PlayerApp {
         if self.quit {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
+        // Canal de controle (`--control PORT`): responde o que o agente pediu, com o estado da janela.
+        self.pump_control(ctx);
         // Instrumentação permanente: taxas/cadência e o CSV de LOCALPLAYER_STATS.
         self.metrics.note_repaint();
         self.metrics.tick(Instant::now());

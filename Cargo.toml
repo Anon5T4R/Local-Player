@@ -39,7 +39,7 @@ rustls-rustcrypto = { path = "libs/rustls-rustcrypto" }
 
 [package]
 name = "local-player-rs"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 publish.workspace = true
@@ -77,6 +77,9 @@ craft-desktop-theme = { path = "libs/craft-libs/crates/desktop-theme" }
 craft-icons = { path = "libs/craft-libs/crates/icons", features = ["egui"] }
 # A paleta de comandos da suíte (lupa e Ctrl+K); fonte: local-libs.
 craft-palette = { path = "libs/craft-libs/crates/palette" }
+# O agent-native da suíte (servidor MCP stdio, passos de script com "$N", flags de automação e o
+# `--connect PORT` para o modo live); fonte: local-libs, espelhada aqui pelo sync.ps1.
+craft-mcp = { path = "libs/craft-libs/crates/mcp" }
 # Carregador de SVG dos ícones da suíte (resvg, Rust puro); fork vendored via [patch].
 egui_extras = { version = "0.37", default-features = false, features = ["svg"] }
 # Motor de decode (fase 2): containers + codecs clean-room do FilmCraft

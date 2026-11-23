@@ -51,6 +51,29 @@ cargo xtask version set X.Y.Z              # bump (Cargo.toml + lock)
 cargo xtask check                          # confere as versões sincronizadas
 ```
 
+## Agent-native (MCP)
+Todo comando do app é alcançável por um agente. O servidor é `local-player-rs mcp` (stdio), sobre o
+`craft-mcp` da suíte (`libs/craft-libs/crates/mcp`, fonte `local-libs` — espelho, não editar), com
+três ferramentas: `command_list` (o catálogo: id, rótulo, menu, `appOnly` e o schema dos parâmetros),
+`command_run` (um id com `params`) e `command_batch` (passos em ordem, com `"$N.path"` puxando o
+resultado de um passo anterior). Sem cliente MCP: `local-player-rs commands [--search TEXT]` imprime
+o catálogo e `local-player-rs run --script job.json` roda os mesmos passos. O catálogo é
+`src/automation/catalogue.rs` — os comandos da paleta mais `media.probe`, que o app já tinha como
+`--probe`. Nada de ação nova.
+
+Tocar precisa da janela (saída de áudio, GPU): o headless faz o que é documento do player — a
+playlist (`playlist.add_file`/`add_folder`/`clear`) — e lê metadados de contêiner (`media.probe`);
+transporte, seek, volume, legendas, viewport, diálogos e sair dizem `appOnly` e o headless os recusa
+apontando o modo live (`src/automation/session.rs`, os mesmos comandos na janela por `src/live.rs`).
+
+Modo live: `local-player-rs --control PORT` abre o canal JSON em `127.0.0.1` e
+`local-player-rs mcp --connect PORT` liga o MCP nele (porta nua = loopback; host que não é loopback
+é recusado antes de conectar). `--automation-read-root DIR`/`--automation-write-root DIR`
+(repetíveis, `--flag=DIR`) confinam os arquivos que os comandos leem e escrevem; uma espécie sem
+raiz não concede nada daquele acesso e, sem nenhuma flag, não há confinamento. Com um app rodando, as
+flags vão para o app. `--probe`, `--bench`, `--help` e `--version` continuam no CLI de diagnóstico.
+As três vias têm teste em `tests/agent_native.rs`.
+
 ## Upstream e a pasta `<root>/storytold`
 
 Menções a `storytold/*` em código, docs e atribuições (NOTICE/ATTRIBUTION) são referência histórica e

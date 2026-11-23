@@ -265,7 +265,7 @@ fn print_bench(out: &mut dyn Write, r: &engine::BenchReport) -> std::io::Result<
 /// Saída do CLI: stdout herdado quando existe; senão o console do processo pai
 /// (Windows GUI), com UTF-8.
 #[cfg(windows)]
-fn output() -> Box<dyn Write> {
+pub(crate) fn output() -> Box<dyn Write> {
     use windows::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole, GetStdHandle, STD_OUTPUT_HANDLE, SetConsoleOutputCP};
     // SAFETY: chamadas de console do próprio processo; handles inválidos viram
     // `Err`/artefato e o fallback é o stdout do Rust.
@@ -283,7 +283,7 @@ fn output() -> Box<dyn Write> {
 }
 
 #[cfg(not(windows))]
-fn output() -> Box<dyn Write> {
+pub(crate) fn output() -> Box<dyn Write> {
     Box::new(std::io::stdout())
 }
 

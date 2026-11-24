@@ -1,47 +1,48 @@
 # ROADMAP - Local Player
 
-O que já foi entregue mora nas release notes; aqui ficam as pendências, a dívida
-e as decisões que governam o app.
+What has been delivered lives in the release notes; here stay the open items, the debt and the
+decisions that govern the app.
 
-## Fases em aberto
+## Open phases
 
-- **7b. hwdec macOS** — falta VideoToolbox; o Linux (VA-API/NVDEC) e o Windows
-  (Media Foundation/DXVA) já estão no `crates/hwdec` do fork (`hwdec/src/lib.rs`).
-- **8. Maturação restante** — VFR e extração do motor como crate.
+- **7b. macOS hwdec** — VideoToolbox is missing; Linux (VA-API/NVDEC) and Windows
+  (Media Foundation/DXVA) are already in the fork's `crates/hwdec` (`hwdec/src/lib.rs`).
+- **8. Remaining maturation** — VFR and extracting the engine as a crate.
 
-## Pendências conhecidas
+## Known open items
 
-- **hwdec 4K HEVC** — MF/DXVA cobre Main/Main 10 e VP9/AV1; falta validar 4K HEVC real em
-  hardware (o SW pode não segurar sozinho, e o readback GPU→CPU cresce com a resolução).
-- **Gamut BT.2020→709** — o tonemap HDR→SDR (BT.2390, 10 bits até a GPU) está feito;
-  a conversão de gamut segue pendente.
-- **VFR** — o pipeline assume a taxa nominal declarada pelo container.
-- **ASS** — básico (styles/cores/\an/contorno); `\pos`/`\move`/`\fad`/karaokê/`\t`/desenho
-  ignorados (avisos no stderr); sem colisão de linhas nem quebra automática.
-- **Hot-swap de device de áudio** — trocar a saída exige reabrir faixa/app.
-- **Gapless** — auto-avanço da playlist funciona, mas sem gapless fora de MP3.
-- **Legenda embutida** — suporta texto (SRT/VTT/ASS do MKV e tx3g do MP4). Faixas bitmap
-  (PGS/VobSub) são listadas no `--probe` e ignoradas no player; `wvtt` em MP4 (amostras em caixas)
-  ainda não é interpretado.
-- **Janela 1:1 e chrome dinâmico** — o resize mede o chrome na abertura e recalcula em até 3
-  passadas (a janela inicial é estreita e as barras quebram linha, o chrome muda depois do
-  resize). Se o chrome mudar DEPOIS (linha de status da legenda, item novo na lista), o vídeo fica
-  com uma borda de poucos px até a próxima faixa — perseguir o chrome por frame faria a janela
-  "respirar" sozinha, então não.
-- **TLS do update** — provider puro (fork vendored do `rustls-rustcrypto`) como caminho único,
-  sem fallback; `ring`/`aws-lc-sys` fora do grafo; 2 advisories ignoradas no `deny.toml`
-  (`RUSTSEC-2023-0071` do `rsa`, sem patch nem no 0.10-rc; `RUSTSEC-2026-0387` do
-  `crypto-bigint 0.5`, que só sai migrando para rsa 0.10), com o motivo lá. Revisitar quando o
-  upstream do `rustls-rustcrypto` migrar de `rsa`.
+- **4K HEVC hwdec** — MF/DXVA covers Main/Main 10 and VP9/AV1; real 4K HEVC on
+  hardware is still to be validated (SW may not hold up alone, and the GPU→CPU readback grows
+  with the resolution).
+- **BT.2020→709 gamut** — the HDR→SDR tonemap (BT.2390, 10 bits up to the GPU) is done;
+  the gamut conversion is still pending.
+- **VFR** — the pipeline assumes the nominal rate the container declares.
+- **ASS** — basic (styles/colors/\an/outline); `\pos`/`\move`/`\fad`/karaoke/`\t`/drawings
+  ignored (warnings on stderr); no line collision and no automatic wrapping.
+- **Audio device hot-swap** — changing the output requires reopening the track/app.
+- **Gapless** — the playlist's auto-advance works, but without gapless outside MP3.
+- **Embedded subtitles** — text is supported (SRT/VTT/ASS from MKV and tx3g from MP4). Bitmap
+  tracks (PGS/VobSub) are listed by `--probe` and ignored by the player; `wvtt` in MP4 (samples
+  in boxes) is not interpreted yet.
+- **1:1 window and dynamic chrome** — the resize measures the chrome on opening and recomputes in
+  up to 3 passes (the initial window is narrow and the bars wrap, the chrome changes after the
+  resize). If the chrome changes LATER (the subtitle status line, a new item in the list), the
+  video keeps a border of a few px until the next track — chasing the chrome per frame would make
+  the window "breathe" on its own, so no.
+- **Update TLS** — pure provider (vendored fork of `rustls-rustcrypto`) as the only path,
+  with no fallback; `ring`/`aws-lc-sys` out of the graph; 2 advisories ignored in `deny.toml`
+  (`RUSTSEC-2023-0071` in `rsa`, no patch even in 0.10-rc; `RUSTSEC-2026-0387` in
+  `crypto-bigint 0.5`, which only goes away by migrating to rsa 0.10), with the reason there.
+  Revisit when the `rustls-rustcrypto` upstream migrates off `rsa`.
 
-## Dívida técnica
+## Technical debt
 
-- Sync A/V e seek GOP-aware são o trabalho duro; os codecs em si não.
-- Perf SW 4K HEVC pode exigir hwdec antes do esperado.
+- A/V sync and GOP-aware seek are the hard work; the codecs themselves are not.
+- 4K HEVC SW perf may require hwdec sooner than expected.
 
-## Decisões
+## Decisions
 
-- **Sem fallback mpv** (João, 2026-11-07): o caminho é pure Rust; não existe válvula
-  de escape para o mpv.
-- **Sem novos PRs ao filmcraft** (João, 2026-11-09): os PRs #4494 e #4534 foram
-  fechados sem merge; os patches ficam registrados em `docs/upstream/`.
+- **No mpv fallback** (João, 2026-11-07): the path is pure Rust; there is no escape
+  valve to mpv.
+- **No new PRs to filmcraft** (João, 2026-11-09): PRs #4494 and #4534 were
+  closed without merging; the patches stay recorded in `docs/upstream/`.

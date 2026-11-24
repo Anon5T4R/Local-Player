@@ -52,7 +52,9 @@ static APP: craft_update::App = craft_update::App {
     id: "local-player-rs",
     name: "Local Player",
     tagline: "Media player",
-    repo: "Anon5T4R/Local-Player",
+    repo: "Styx-Studios/Local-Player",
+    // Até a transferência para a org, as releases moram no repo pessoal.
+    former_repos: &["Anon5T4R/Local-Player"],
     former_ids: &[],
     // A cópia instalada antes do rename registra "Local Player RS": o updater a reconhece pelo
     // nome antigo até o MSI novo renomear a inscrição, sem desinstalar nada.

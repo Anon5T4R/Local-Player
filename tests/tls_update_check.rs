@@ -24,6 +24,7 @@ const LOCAL_PLAYER_RS: App = App {
     tagline: "Media player",
     repo: "Anon5T4R/Local-Player-RS",
     former_ids: &[],
+    former_repos: &[],
     former_names: &[],
     icon_png: None,
     accent: None,

@@ -1,172 +1,165 @@
-# Local Player
+<p align="center">
+  <img src="assets/app-icon/hicolor/128x128/apps/local-player-rs.png" width="96" height="96" alt="Local Player icon">
+</p>
 
-**Player de mídia 100% local e offline em Rust puro.** O demux e o decode são
-crates nossas — o [FilmCraft](https://github.com/storytold/filmcraft) vendored
-em `libs/filmcraft` mais o bootstrap de áudio do symphonia. Sem processo
-externo, sem download em runtime, sem telemetria.
+<h1 align="center">Local Player</h1>
+
+<p align="center">
+  A video and audio player for Windows and Linux whose file readers and decoders are written in Rust.<br>
+  <a href="https://github.com/Anon5T4R/Local-Player/releases/latest">Download</a> ·
+  <a href="ROADMAP.md">Roadmap and status</a> ·
+  <a href="#where-it-comes-from">Where it comes from</a> ·
+  <a href="#how-it-is-made">How it is made</a>
+</p>
+
+<!-- README-SHOT: a film playing with subtitles, controls visible; dark and light -->
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/main-dark.png">
+    <img src="docs/images/readme/main-light.png" width="820" alt="Local Player playing a video with subtitles">
+  </picture>
+</p>
+
+## What is different about it
+
+Most players, including mpv and VLC, decode through FFmpeg or GStreamer, which are large C libraries.
+Local Player reads the containers and decodes the video and audio with Rust code: the clean-room
+decoders of [FilmCraft](https://github.com/storytold/filmcraft), plus
+[symphonia](https://github.com/pdeljanov/Symphonia) for part of the audio formats. When the system offers hardware
+decoding (Media Foundation/DXVA on Windows, VA-API/NVDEC on Linux), it is used first, and the Rust
+decoder takes over when it is not available.
+
+What that buys: no C code reads the file you open, and one toolchain builds the whole player. What
+it costs: fewer formats than FFmpeg, and software decoding that is slower than FFmpeg's hand-tuned
+assembly, so very large files (4K HEVC, for example) depend on hardware decoding.
+
+## What it plays
+
+- **Video containers:** MP4, M4V, MOV, MKV, WebM, AVI, MPEG-TS (`.ts`, `.m2ts`).
+- **Video codecs:** H.264, HEVC (Main and Main 10), AV1, VP8, VP9.
+- **HDR:** HEVC Main 10 with PQ or HLG, kept at 10 or 12 bits all the way to the GPU and tone-mapped
+  to SDR with ITU-R BT.2390 (the peak comes from the file's MaxCLL or mastering metadata).
+- **Audio files:** MP3, FLAC, Opus, Vorbis, WAV, AIFF, M4A (AAC, ALAC).
+- **Audio inside video:** AAC, MP3, Opus, AC-3, E-AC-3, FLAC, Vorbis, PCM.
+- **Subtitles:** external `.srt`, `.vtt`, `.ass` and `.ssa`, found next to the video automatically
+  (`film.srt`, `film.pt-br.srt`, …); text tracks inside MKV and MP4 (`tx3g`), picked by language.
+- **Playlist** kept between sessions; open files or a whole folder, or drop them on the window.
+
+What is missing or partial (bitmap subtitles such as PGS, gapless playback, variable frame rate, the
+BT.2020 color gamut, advanced ASS effects, older codecs like MPEG-4 Part 2 or VC-1) is tracked in the
+[roadmap](ROADMAP.md). It plays local files only: no network streams, discs or online services.
 
 ## Download
 
-Assets de cada release em
-[Releases](https://github.com/Anon5T4R/Local-Player/releases):
+Windows 10/11 (x64): `.msi` installer or portable `.zip`. Linux (x86_64): `.AppImage` or `.tar.gz`.
+All in [Releases](https://github.com/Anon5T4R/Local-Player/releases/latest). macOS is not published.
 
-| Asset | O que é |
-| --- | --- |
-| `local-player-rs-<versão>-windows-x64.msi` | Instalador MSI (WiX v5, Program Files, atalhos) |
-| `local-player-rs-<versão>-windows-x64-portable.zip` | Portable (um `.exe` só) |
-| `local-player-rs-<versão>-linux-x86_64.AppImage` | Linux, AppImage |
-| `local-player-rs-<versão>-linux-x86_64.tar.gz` | Linux, portable |
+Each file is signed with [minisign](https://jedisct1.github.io/minisign/), the same key as every
+Local app:
 
-## O que toca
-
-- **Vídeo:** MP4/M4V/MOV, MKV, WebM, AVI e MPEG-TS — H.264, HEVC (Main/Main 10),
-  AV1, VP8 e VP9. Hardware decode como primeira opção (Media Foundation/DXVA no
-  Windows, VA-API/NVDEC no Linux) com queda transparente para o decode em
-  software; YUV→RGB pelo shader WGSL do wgpu, com letterbox e rotação em 90°.
-- **HDR e 10 bits:** HEVC Main 10 / PQ / HLG, 10 e 12 bits **sem descer para
-  8 bits no caminho até a GPU** (textura `R16Unorm`) e tonemap **ITU-R BT.2390**
-  para SDR (default; `LOCALPLAYER_HDR_TONEMAP=hable` troca o operador). O pico
-  vem do `MaxCLL`/mastering display do container, depois de
-  `LOCALPLAYER_HDR_PEAK`, depois de 1000 nits. Gamut BT.2020→BT.709 segue fora.
-- **Áudio em arquivo:** MP3, FLAC, Opus, Vorbis, WAV/AIFF e M4A (AAC/ALAC).
-- **Áudio dentro de container de vídeo:** AAC, MP3, Opus, AC-3/E-AC-3, FLAC,
-  Vorbis e PCM — a trilha toca junto com a imagem e é o relógio mestre.
-- **Legendas externas:** `.srt`, `.vtt`, `.ass`/`.ssa` **carregadas sozinhas** ao
-  lado do vídeo nesta ordem — `filme.srt`, `filme.vtt`, `filme.ass`,
-  `filme.sub.srt`, `filme.pt-br.srt`, `filme.en.srt`, ... O parser tolera BOM
-  UTF-8/UTF-16, CRLF, tags `<i>/<b>/<u>` e entradas quebradas (puladas, o
-  arquivo continua). WebVTT: `align:`/`position:`/`line:` em %, blocos `NOTE`
-  ignorados, `<c.classe>` removido. ASS/SSA: estilo do script (fonte, tamanho,
-  cores, negrito/itálico, os nove alinhamentos, margens) e overrides comuns
-  (`\an`, `\i`, `\b`, `\fs`, `\c`, `\N`); `\pos`/karaokê/desenho ficam fora.
-- **Legendas embutidas:** faixas do próprio container — MKV (`S_TEXT/UTF8`,
-  `S_TEXT/ASS`, `S_TEXT/WEBVTT`) e MP4 (`tx3g`) — com auto-seleção pelo idioma
-  do app/sistema (externa vence embutida); a tecla `C` cicla as faixas.
-- **Playlist** persistente entre sessões: `+ arquivo` / `+ pasta` (multi-arquivo,
-  a listagem roda fora da UI thread — pasta de rede não trava a janela) ou
-  arraste os arquivos pra janela; "abrir com" no Explorer também funciona
-  (caminhos via args).
-- **Autoupdate** via `craft-update`: check no GitHub da própria release
-  (Windows: substitui o MSI/portable; Linux: AppImage/tar.gz).
-- **Tema Automático/Claro/Escuro e idiomas EN/PT-BR/ES** (`src/theme.rs`, `src/i18n.rs`), no padrão da suíte.
-- **Casca da suíte** = `src/shell.rs` + craft-icons + craft-palette +
-  craft-desktop-theme (espelhos do local-libs); janela mínima de 480×360 — as
-  barras de controle foram desenhadas para 480.
-
-## Atalhos
-
-| Tecla | Ação |
-| --- | --- |
-| Espaço | play/pause |
-| ← / → | −5 s / +5 s |
-| F | entra/sai da tela cheia |
-| R / Shift+R | gira 90° (horário / anti-horário) |
-| M | mute |
-| S | liga/desliga a legenda |
-| C | cicla as faixas de legenda embutida |
-| Z / X | atraso da legenda −0,5 s / +0,5 s (no overlay de status) |
-| D | overlay de estatísticas (decode/exibição/drops/upload/RSS/cache) |
-| Esc | sai da tela cheia |
-
-## Diagnóstico
-
-O app sai de fábrica com instrumentação sempre ligada (não depende de build de
-debug nem de o usuário perceber nada). Nada é enviado para lugar nenhum: fica
-tudo na sua pasta.
-
-**Log automático de sessão** — um arquivo por execução, mantendo os últimos 10
-(os mais velhos são apagados):
-
-- Windows: `%APPDATA%\local-player-rs\logs\`
-- Linux: `$XDG_DATA_HOME/local-player-rs/logs/` (ou `~/.local/share/local-player-rs/logs/`)
-
-Cada faixa tocada grava uma linha `track` (data/hora UTC, arquivo, container,
-codec de vídeo/áudio, resolução, fps, bitrate, duração). As anomalias viram
-linhas `event=…`:
-
-| Evento | Significa |
-| --- | --- |
-| `stall` | o frame ficou > 250 ms atrás do relógio (uma linha por episódio, com pior atraso, duração e drops) |
-| `drop_burst` | um tick descartou ≥ 4 frames (o apresentador pulou o atraso) |
-| `upload_ms` | subir a textura passou de 30 ms (disputa com a UI) |
-| `rss_mb` / `rss_back` | working set acima de 700 MB (e quando volta) |
-| `engine_dead` | a thread do motor de áudio morreu |
-| `update_check` | o check de update pedido pelo usuário começou (a linha anterior traz `tls_provider=`) |
-| `update_check_failed` | o check de update pedido pelo usuário falhou (com o `tls_provider=` usado, na linha anterior) |
-
-**Overlay ao vivo (tecla D)**: fps de decode e de exibição, drops (e quantos por
-atraso), atraso vs relógio, custo do upload, intervalo de repaint, RSS/pico e
-bytes no cache de frames. Com vídeo aberto ele também mostra o `pixfmt` do
-container, o caminho de amostra (`10-bit 4:2:0 yuv -> r16unorm`) e, em HDR, o
-tonemap ativo (`pq -> sdr bt2390 (1000 nits)`).
-
-**CSV por segundo** (opcional, o mais detalhado): `LOCALPLAYER_STATS=<arquivo.csv>`
-— ou `LOCALPLAYER_STATS=1` para gerar em `%TEMP%`. É o artefato mais útil para
-investigar uma travada.
-
-**Linha de comando** (não abre janela; no Windows o release se anexa ao console
-do PowerShell):
-
-```bash
-local-player-rs --probe filme.mkv                  # container, codecs, res, fps, bitrate, duração
-local-player-rs --bench filme.mkv --seconds 120    # decode puro: fps, ms/frame (média/p95/máx), por trecho de 10 s, cache, RSS
-local-player-rs --version | --help
+```sh
+minisign -Vm <file> -P RWTqN+hTTCFbDCGCA1cEJRLp2FSluxIUiJfqdoAYwkwNNVH5MTYH8qSN
 ```
 
-`--bench` passa pelo mesmo caminho de abertura do player e roda sem áudio, GPU
-ou egui: separa "o decode não acompanha o tempo real" de "a UI engargala no
-upload/repaint".
+## Network and privacy
 
-**Variáveis de ambiente** (todas opcionais — o padrão é o recomendado):
+- The player never sends anything about what you watch.
+- On start it asks GitHub if a newer version exists, and downloads it only if you accept. There is
+  no setting to turn the check off yet.
+- No account, analytics or crash reporting. The diagnostic logs below stay in your user folder.
 
-| Variável | O que faz |
-| --- | --- |
-| `LOCALPLAYER_FRAME_CACHE_MB` | teto do cache de frames decodificados (padrão 128; `0` volta ao teto do fork, 384 MB) |
-| `LOCALPLAYER_DECODE_THREADS` | máximo de threads dos decoders de vídeo (H.264/HEVC/VP9/AV1) e do pool do fork (padrão `0` = todos os núcleos). Em 1080p H.264, `2` ainda sobra ~4,7× de folga e libera CPU para a UI/áudio/outros programas |
-| `LOCALPLAYER_HDR_PEAK` | pico em nits usado pelo tonemap PQ quando o container não sinaliza `MaxCLL`/mastering display (padrão 1000; faixa 100–10 000) |
-| `LOCALPLAYER_HDR_TONEMAP` | operador de tonemap HDR→SDR: `bt2390` (padrão, mantém matiz e não escurece os tons médios) ou `hable` (filmic por canal, mais escuro) |
+Security notes, all checkable in this repository:
 
-**TLS do update é 100% Rust.** O check de release e o download do instalador usam
-o fork vendored do `rustls-rustcrypto` (pure Rust) como caminho único — nenhum
-provider C (`ring`/`aws-lc-sys`) é compilado no app. O log de sessão registra
-`tls_provider=pure` antes da primeira linha: um check manual começa com
-`event=update_check start` (e o provider sai antes dela), uma falha grava
-`event=update_check_failed` com o detalhe. Não há fallback: falha de handshake
-vira erro visível, nunca um retry silencioso em outro backend.
+- The container readers and the video decoders (H.264, HEVC, AV1, VP8, VP9) contain no `unsafe`
+  code. In the player itself, `unsafe` appears only in calls to the Windows API (console, thread
+  priority, opening a link); the hardware decoding layer uses it to talk to the OS video APIs.
+- TLS for the update check is pure Rust (rustls with RustCrypto); no `ring`, `aws-lc` or OpenSSL.
+- Releases are built by GitHub Actions from a tagged commit with locked dependencies, checked by
+  `cargo-deny`.
 
-> **PowerShell no Windows:** o `.exe` de release é subsistema GUI, então o
-> PowerShell não espera o processo terminar (a saída aparece depois do prompt e
-> `$LASTEXITCODE` fica vazio). Para uso em script, rode com
-> `cmd /c "local-player-rs --bench filme.mkv"` ou
-> `Start-Process -Wait -PassThru local-player-rs -ArgumentList '--bench','filme.mkv'`.
-> A saída vai para o console (o app se anexa ao console do processo pai).
+## Where it comes from
 
-Anomalias são gravadas quando a UI volta a responder — se a janela congelou por
-2 s, a linha `event=stall` aparece com `dur_ms≈2000` logo depois; o log em si
-não consegue escrever durante um event loop travado.
+Local Player is our own app, not a fork of another player. The decoding side is vendored from
+[FilmCraft](https://github.com/storytold/filmcraft), an open-source video editor by
+[ArtCraft](https://getartcraft.com) (MIT or Apache-2.0), at commit `8fda2f2`: only the parts a player
+needs (containers, decoders, hardware decoding), without the editor, effects or encoders. The
+decoders are their work.
 
-Para reportar uma travada, mande o `player-*.log` da execução, a saída de
-`--bench` no mesmo arquivo e, se possível, o CSV de `LOCALPLAYER_STATS` da
-mesma reprodução.
+We keep the vendored copy close to upstream and record every change we make to it in
+[docs/upstream/fork-patches.md](docs/upstream/fork-patches.md). Fixes to the decoders that apply
+upstream should go to FilmCraft as issues or pull requests rather than live only here.
 
-## Build
+What is ours: the playback engine (audio as the master clock, frame queue, seeking), the GPU
+presentation (YUV to RGB in a WGSL shader, the 10-bit path and the HDR tone mapping), the subtitle
+parsers and renderer, the playlist, the diagnostics, and the shell shared by all Local apps.
 
-```bash
+## How the app is built
+
+```
+UI (egui)
+ └─ engine thread: read container → decode (FilmCraft codecs, or hardware) → frame queue
+      ├─ video: YUV → wgpu texture → shader to RGB, tone mapping for HDR
+      ├─ subtitles: the cue active at the master clock, drawn over the video
+      └─ audio: cpal output fed from a ring buffer; audio is the master clock
+```
+
+## Diagnostics
+
+Every run writes a session log (the last 10 are kept) to `%APPDATA%\local-player-rs\logs\` on Windows
+or `~/.local/share/local-player-rs/logs/` on Linux: one line per file played and one per anomaly
+(stalls, dropped frames, slow uploads, high memory). Press `D` for a live overlay with decode and
+display rates, drops, delay and memory. From the command line:
+
+```sh
+local-player-rs --probe film.mkv                 # container, codecs, size, frame rate, bitrate
+local-player-rs --bench film.mkv --seconds 120   # decode speed without audio, GPU or UI
+```
+
+Optional environment variables (the defaults are the recommended values):
+
+| Variable | Effect |
+|---|---|
+| `LOCALPLAYER_STATS` | `<file.csv>` (or `1` for a file in the temp folder): one row per second; the most useful thing to attach when reporting a stutter |
+| `LOCALPLAYER_DECODE_THREADS` | maximum decoder threads (default `0` = all cores) |
+| `LOCALPLAYER_FRAME_CACHE_MB` | cap on the decoded-frame cache (default 128) |
+| `LOCALPLAYER_HDR_PEAK` | peak brightness in nits when the file does not say (default 1000) |
+| `LOCALPLAYER_HDR_TONEMAP` | `bt2390` (default) or `hable` |
+
+On Windows the release `.exe` is a GUI program, so PowerShell does not wait for `--probe` or `--bench`
+to finish; use `cmd /c "local-player-rs --bench film.mkv"` in scripts.
+
+## Keyboard shortcuts
+
+| Key | Action |
+|---|---|
+| `Space` | play / pause |
+| `←` / `→` | back / forward 5 s |
+| `F`, `Esc` | full screen / leave full screen |
+| `R` / `Shift+R` | rotate 90° clockwise / counterclockwise |
+| `M` | mute |
+| `S` / `C` | subtitles on/off / next embedded subtitle track |
+| `Z` / `X` | subtitle delay −0.5 s / +0.5 s |
+| `D` | statistics overlay |
+
+## Build from source
+
+```sh
+git clone https://github.com/Anon5T4R/Local-Player
+cd Local-Player
 cargo build --release
 ```
 
-O `Cargo.lock` está commitado; `build.rs` embute o `icon.ico` no binário do
-Windows. O workspace do vendor do FilmCraft é fechado em
-`libs/filmcraft/Cargo.toml`; `libs/` é `exclude` do workspace do app.
+## How it is made
 
-## Arquitetura
+Local Player follows the same rules as every Local app: local files and no account, Rust only
+(including the UI and the cryptography), one self-contained repository per app, governed
+dependencies, signed releases built from a tag, and MCP so agents can use the app. Most of the code
+is written by AI coding agents (Claude Code and OpenCode) from written plans, reviewed by the
+maintainer and held to the same checks and CI. The reasons for each decision:
+[How we make the Local apps](https://github.com/Styx-Studios/.github/blob/main/profile/README.md#how-we-make-the-local-apps).
 
-```
-UI (egui, portada do local-player)
- └─ engine thread: demux → decode (filmcraft-codecs) → frame ring
-      ├─ vídeo: YUV → textura wgpu pintada no CentralPanel do egui
-      ├─ legenda: cue ativa pelo relógio mestre → texto da egui sobre o vídeo
-      └─ áudio: cpal consumindo ring buffer (relógio mestre = áudio)
-```
+## License and credits
 
-Licença: MIT OR Apache-2.0 (`LICENSE-MIT` e `LICENSE-APACHE`).
+MIT or Apache-2.0, at your option ([LICENSE-MIT](LICENSE-MIT), [LICENSE-APACHE](LICENSE-APACHE)).
+The vendored FilmCraft crates keep their authors' licenses and notices in `libs/filmcraft`.
+Other Local apps: [the full list](https://github.com/Styx-Studios).

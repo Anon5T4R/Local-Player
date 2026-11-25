@@ -23,10 +23,10 @@
   <launchable type="desktop-id">local-player-rs.desktop</launchable>
   <icon type="stock">local-player-rs</icon>
   <!-- Only url types known to appstream 0.15 (Ubuntu 22.04, where CI validates): no vcs-browser. -->
-  <url type="homepage">https://github.com/Anon5T4R/Local-Player-RS</url>
-  <url type="bugtracker">https://github.com/Anon5T4R/Local-Player-RS/issues</url>
-  <url type="help">https://github.com/Anon5T4R/Local-Player-RS</url>
-  <url type="contact">https://github.com/Anon5T4R/Local-Player-RS/issues</url>
+  <url type="homepage">https://github.com/Styx-Studios/Local-Player</url>
+  <url type="bugtracker">https://github.com/Styx-Studios/Local-Player/issues</url>
+  <url type="help">https://github.com/Styx-Studios/Local-Player</url>
+  <url type="contact">https://github.com/Styx-Studios/Local-Player/issues</url>
   <categories>
     <category>AudioVideo</category>
     <category>Player</category>

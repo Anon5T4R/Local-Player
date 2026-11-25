@@ -14,7 +14,7 @@ section: video
 priority: optional
 maintainer: ${LOCALPLAYER_MAINTAINER}
 vendor: Local Player RS contributors
-homepage: https://github.com/Anon5T4R/Local-Player
+homepage: https://github.com/Styx-Studios/Local-Player
 license: MIT OR Apache-2.0
 description: |-
   Media player that works 100% locally and offline.

@@ -61,7 +61,7 @@ static APP: craft_update::App = craft_update::App {
     former_names: &["Local Player RS"],
     icon_png: Some(ICON_PNG),
     accent: None,
-    developer: "Anon5T4R",
+    developer: "Styx Studios",
     publisher: "Local Player RS contributors",
 };
 
